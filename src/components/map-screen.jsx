@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTaipeiData } from '../data/DataContext.jsx';
-import { applyTruckFilter, trucksNearCenter } from '../data/taipei.js';
+import { applyTruckFilter, isTruckStale, trucksNearCenter } from '../data/taipei.js';
 import { theme, WasteChip, Icon, formatEta, FilterPopover, isTruckFilterActive, Tooltip } from './shared.jsx';
 import { MapGL } from './map-gl.jsx';
 
@@ -147,6 +147,7 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
         )}
         {trucks.map(truck => {
           const selected = selectedTruck?.id === truck.id;
+          const stale = isTruckStale(truck);
           const primary = truck.accepts[0];
           const primaryColor = {
             general: dark ? '#CBD5D0' : '#4B5563',
@@ -168,9 +169,13 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
               display: 'flex', alignItems: 'center', gap: 12,
               textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
               transition: 'all 0.15s',
+              opacity: stale ? 0.5 : 1,
             }}>
               {(() => {
-                const f = formatEta(truck.eta, { atStop: truck.atStop });
+                const f = formatEta(truck.eta, {
+                  atStop: truck.atStop,
+                  reportedAt: truck.realtime ? truck.time : null,
+                });
                 return (
                   <div style={{
                     width: compact ? 52 : 58, flexShrink: 0, textAlign: 'center',

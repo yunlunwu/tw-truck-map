@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTaipeiData } from '../data/DataContext.jsx';
-import { haversineKm, nearestTruckForLocation } from '../data/taipei.js';
+import { haversineKm, isTruckStale, nearestTruckForLocation } from '../data/taipei.js';
 import { useFavorites } from '../data/useFavorites.js';
 import { theme, WasteChip, Icon, formatEta } from './shared.jsx';
 import { AddFavoriteModal } from './AddFavoriteModal.jsx';
@@ -28,58 +28,72 @@ export function ScheduleScreen({ dark, density }) {
       <div style={{
         margin: '18px 16px 0',
         borderRadius: 20, overflow: 'hidden',
-        background: dark ? 'linear-gradient(135deg, #0F7B5A 0%, #0C6449 100%)' : 'linear-gradient(135deg, #0F7B5A 0%, #14997A 100%)',
-        color: '#fff', padding: '18px 20px 20px',
-        boxShadow: dark ? 'none' : '0 10px 28px rgba(15,123,90,0.22)',
+        background: next
+          ? (dark ? 'linear-gradient(135deg, #0F7B5A 0%, #0C6449 100%)' : 'linear-gradient(135deg, #0F7B5A 0%, #14997A 100%)')
+          : (dark ? 'rgba(255,255,255,0.04)' : 'rgba(17,24,22,0.04)'),
+        color: next ? '#fff' : t.textMuted,
+        padding: '18px 20px 20px',
+        boxShadow: next && !dark ? '0 10px 28px rgba(15,123,90,0.22)' : 'none',
+        border: next ? 'none' : `0.5px dashed ${t.border}`,
         position: 'relative',
       }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1.5, opacity: 0.85 }}>
             下一班即將抵達
           </div>
-          <div style={{
-            padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.18)',
-            fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4,
-          }}>即時</div>
+          {next && (
+            <div style={{
+              padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.18)',
+              fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4,
+            }}>即時</div>
+          )}
         </div>
-        {(() => {
-          const f = formatEta(next.eta, { atStop: next.atStop });
-          return (
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 10 }}>
-              <span style={{
-                fontSize: f.mode === 'clock' ? 48 : 64, fontWeight: 800, letterSpacing: -3, lineHeight: 0.9,
-                fontFeatureSettings: '"tnum"', fontVariantNumeric: 'tabular-nums',
-              }}>{f.value}</span>
-              <span style={{ fontSize: 15, fontWeight: 600, opacity: 0.9 }}>{f.mode === 'minutes' ? '分鐘後' : f.unit}</span>
-              <span style={{ marginLeft: 'auto', fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>{next.time}</span>
-            </div>
-          );
-        })()}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.18)' }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>{next.route}</span>
-          <span style={{ opacity: 0.5 }}>·</span>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {next.types.map(ty => {
-              const T = d.wasteTypes[ty];
+        {next ? (
+          <>
+            {(() => {
+              const f = formatEta(next.eta, { atStop: next.atStop, reportedAt: next.reportedAt });
               return (
-                <span key={ty} style={{
-                  fontSize: 11, padding: '3px 7px', borderRadius: 999,
-                  background: 'rgba(255,255,255,0.2)', fontWeight: 600,
-                }}>{T.icon} {T.label}</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 10 }}>
+                  <span style={{
+                    fontSize: f.mode === 'clock' ? 48 : 64, fontWeight: 800, letterSpacing: -3, lineHeight: 0.9,
+                    fontFeatureSettings: '"tnum"', fontVariantNumeric: 'tabular-nums',
+                  }}>{f.value}</span>
+                  <span style={{ fontSize: 15, fontWeight: 600, opacity: 0.9 }}>{f.mode === 'minutes' ? '分鐘後' : f.unit}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>{next.time}</span>
+                </div>
               );
-            })}
+            })()}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.18)' }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{next.route}</span>
+              <span style={{ opacity: 0.5 }}>·</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {next.types.map(ty => {
+                  const T = d.wasteTypes[ty];
+                  return (
+                    <span key={ty} style={{
+                      fontSize: 11, padding: '3px 7px', borderRadius: 999,
+                      background: 'rgba(255,255,255,0.2)', fontWeight: 600,
+                    }}>{T.icon} {T.label}</span>
+                  );
+                })}
+              </div>
+            </div>
+            <button style={{
+              marginTop: 14, width: '100%',
+              background: 'rgba(255,255,255,0.18)', border: '0.5px solid rgba(255,255,255,0.25)',
+              color: '#fff', borderRadius: 12, padding: '10px',
+              fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              fontFamily: 'inherit',
+            }}>
+              {Icon.bell('#fff')} 提前 5 分鐘提醒我
+            </button>
+          </>
+        ) : (
+          <div style={{ fontSize: 14.5, fontWeight: 600, marginTop: 14, lineHeight: 1.5 }}>
+            目前沒有即將抵達的垃圾車
           </div>
-        </div>
-        <button style={{
-          marginTop: 14, width: '100%',
-          background: 'rgba(255,255,255,0.18)', border: '0.5px solid rgba(255,255,255,0.25)',
-          color: '#fff', borderRadius: 12, padding: '10px',
-          fontSize: 13.5, fontWeight: 700, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          fontFamily: 'inherit',
-        }}>
-          {Icon.bell('#fff')} 提前 5 分鐘提醒我
-        </button>
+        )}
       </div>
 
       <div style={{ padding: '24px 20px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -389,11 +403,13 @@ export function SearchScreen({ dark, density }) {
             recycle: '#0F7B5A',
             food: '#B85C2E',
           }[primary];
+          const stale = isTruckStale(truck);
           return (
             <div key={truck.id} style={{
               background: t.surface, border: `0.5px solid ${t.border}`,
               borderRadius: 14, padding: compact ? '11px 14px' : '14px 14px',
               display: 'flex', alignItems: 'center', gap: 12,
+              opacity: stale ? 0.5 : 1,
             }}>
               <div style={{
                 width: 46, height: 46, borderRadius: 12,
@@ -431,7 +447,10 @@ export function SearchScreen({ dark, density }) {
                 </div>
               </div>
               {(() => {
-                const f = formatEta(truck.eta, { atStop: truck.atStop });
+                const f = formatEta(truck.eta, {
+                  atStop: truck.atStop,
+                  reportedAt: truck.realtime ? truck.time : null,
+                });
                 return (
                   <div style={{ textAlign: 'right', minWidth: 60 }}>
                     <div style={{
@@ -543,7 +562,10 @@ export function FavoritesScreen({ dark, density, setTab }) {
                   )}
                 </div>
                 {(() => {
-                  const ef = formatEta(nearest?.eta, { atStop: nearest?.atStop });
+                  const ef = formatEta(nearest?.eta, {
+                    atStop: nearest?.atStop,
+                    reportedAt: nearest?.reportedAt,
+                  });
                   return (
                     <div style={{ textAlign: 'right' }}>
                       <div style={{

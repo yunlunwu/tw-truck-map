@@ -1,14 +1,26 @@
 import { Children, cloneElement, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTaipeiData } from '../data/DataContext.jsx';
-import { taipeiParts } from '../data/taipei.js';
+import { parseNtpcTime, taipeiParts } from '../data/taipei.js';
 
 // 10 分鐘以內顯示「N 分鐘」;超過 10 分鐘改顯示 24 小時制預計抵達時間。
 // 所有時刻都換算成 Asia/Taipei 在地時間 (資料來源就是台北/新北的時刻,使用者人在哪裡都應顯示 Taipei 時間)。
 // 跨日 (今天以外) 會自動帶上日期前綴:明天 → 「明 HH:MM」,更遠 → 「MM/DD HH:MM」。
+// 對 realtime (NTPC) 車而言,forward ETA 本來就是亂猜,
+//   呼叫端傳 opts.reportedAt (車的 GPS 上報時間字串) → 顯示「HH:MM 最後上報」
 // 回傳 { value, unit } 讓呼叫端套到既有的「大數字 + 小單位」版面
 export function formatEta(etaMin, opts = {}) {
   if (opts.atStop) return { value: '靠站', unit: '目前位置', mode: 'now' };
+  if (opts.reportedAt) {
+    const dt = parseNtpcTime(opts.reportedAt);
+    if (dt) {
+      const p = taipeiParts(dt);
+      const hh = String(p.hour).padStart(2, '0');
+      const mm = String(p.minute).padStart(2, '0');
+      return { value: `${hh}:${mm}`, unit: '最後上報', mode: 'reported' };
+    }
+    return { value: '—', unit: '最後上報', mode: 'empty' };
+  }
   if (etaMin == null || Number.isNaN(etaMin)) return { value: '—', unit: '分鐘', mode: 'empty' };
   if (etaMin === 0) return { value: '現在', unit: '即將抵達', mode: 'now' };
   if (etaMin <= 10) return { value: String(etaMin), unit: '分鐘', mode: 'minutes' };

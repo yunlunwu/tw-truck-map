@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTaipeiData } from '../data/DataContext.jsx';
-import { applyTruckFilter, nearestTruckForLocation, trucksNearCenter } from '../data/taipei.js';
+import { applyTruckFilter, isTruckStale, nearestTruckForLocation, trucksNearCenter } from '../data/taipei.js';
 import { useFavorites } from '../data/useFavorites.js';
 import { theme, WasteChip, Icon, formatEta, FilterPopover, isTruckFilterActive, Tooltip } from './shared.jsx';
 import { MapGL } from './map-gl.jsx';
@@ -290,38 +290,49 @@ export function DesktopDashboard({ dark, density }) {
 
         <div style={{
           borderRadius: 18, padding: '18px 20px',
-          background: dark ? 'linear-gradient(135deg, #0F7B5A 0%, #0C6449 100%)' : 'linear-gradient(135deg, #0F7B5A 0%, #14997A 100%)',
-          color: '#fff',
-          boxShadow: dark ? 'none' : '0 10px 28px rgba(15,123,90,0.22)',
+          background: next
+            ? (dark ? 'linear-gradient(135deg, #0F7B5A 0%, #0C6449 100%)' : 'linear-gradient(135deg, #0F7B5A 0%, #14997A 100%)')
+            : (dark ? 'rgba(255,255,255,0.04)' : 'rgba(17,24,22,0.04)'),
+          color: next ? '#fff' : t.textMuted,
+          boxShadow: next && !dark ? '0 10px 28px rgba(15,123,90,0.22)' : 'none',
+          border: next ? 'none' : `0.5px dashed ${t.border}`,
           display: 'flex', flexDirection: 'column', justifyContent: 'center',
         }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.5, opacity: 0.85 }}>
             下一班 · 即將抵達您的位置
           </div>
-          {(() => {
-            const f = formatEta(next.eta, { atStop: next.atStop });
-            return (
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
-                <span style={{
-                  fontSize: f.mode === 'clock' ? 38 : 48, fontWeight: 800, letterSpacing: -2.5, lineHeight: 1,
-                  fontFeatureSettings: '"tnum"', fontVariantNumeric: 'tabular-nums',
-                }}>{f.value}</span>
-                <span style={{ fontSize: 14, fontWeight: 600, opacity: 0.9 }}>{f.unit}</span>
-                <span style={{ marginLeft: 'auto', fontSize: 18, fontWeight: 700, letterSpacing: -0.3 }}>{next.time}</span>
+          {next ? (
+            <>
+              {(() => {
+                const f = formatEta(next.eta, { atStop: next.atStop, reportedAt: next.reportedAt });
+                return (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
+                    <span style={{
+                      fontSize: f.mode === 'clock' ? 38 : 48, fontWeight: 800, letterSpacing: -2.5, lineHeight: 1,
+                      fontFeatureSettings: '"tnum"', fontVariantNumeric: 'tabular-nums',
+                    }}>{f.value}</span>
+                    <span style={{ fontSize: 14, fontWeight: 600, opacity: 0.9 }}>{f.unit}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 18, fontWeight: 700, letterSpacing: -0.3 }}>{next.time}</span>
+                  </div>
+                );
+              })()}
+              <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.2)' }}>{next.route}</span>
+                {next.types.map(ty => {
+                  const T = d.wasteTypes[ty];
+                  return (
+                    <span key={ty} style={{ fontSize: 11.5, padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.18)', fontWeight: 600 }}>
+                      {T.icon} {T.label}
+                    </span>
+                  );
+                })}
               </div>
-            );
-          })()}
-          <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.2)' }}>{next.route}</span>
-            {next.types.map(ty => {
-              const T = d.wasteTypes[ty];
-              return (
-                <span key={ty} style={{ fontSize: 11.5, padding: '4px 10px', borderRadius: 999, background: 'rgba(255,255,255,0.18)', fontWeight: 600 }}>
-                  {T.icon} {T.label}
-                </span>
-              );
-            })}
-          </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 15, fontWeight: 600, marginTop: 10, lineHeight: 1.5 }}>
+              目前沒有即將抵達的垃圾車
+            </div>
+          )}
         </div>
       </div>
 
@@ -385,6 +396,7 @@ export function DesktopDashboard({ dark, density }) {
               const focused = d.focusedLocation
                 && Math.abs(d.focusedLocation.lat - truck.latlng.lat) < 1e-6
                 && Math.abs(d.focusedLocation.lng - truck.latlng.lng) < 1e-6;
+              const stale = isTruckStale(truck);
               return (
                 <div
                   key={truck.id}
@@ -394,19 +406,23 @@ export function DesktopDashboard({ dark, density }) {
                     zoom: 17,
                   })}
                   role="button"
-                  title="點擊將地圖聚焦到此車輛位置"
+                  title={stale ? '此車已收工或資料已舊 · 點擊仍可聚焦到位置' : '點擊將地圖聚焦到此車輛位置'}
                   style={{
                     background: focused ? (dark ? 'rgba(15,123,90,0.15)' : '#F3FAF6') : t.surface2,
                     border: `1px solid ${focused ? t.accent : t.border}`,
                     borderRadius: 12, padding: density === 'compact' ? '10px 12px' : '12px 14px',
                     display: 'flex', alignItems: 'center', gap: 12,
-                    cursor: 'pointer', transition: 'border-color 0.12s ease, background 0.12s ease',
+                    cursor: 'pointer', transition: 'border-color 0.12s ease, background 0.12s ease, opacity 0.12s ease',
+                    opacity: stale ? 0.5 : 1,
                   }}
                   onMouseEnter={(e) => { if (!focused) e.currentTarget.style.borderColor = t.accent; }}
                   onMouseLeave={(e) => { if (!focused) e.currentTarget.style.borderColor = t.border; }}
                 >
                   {(() => {
-                    const f = formatEta(truck.eta, { atStop: truck.atStop });
+                    const f = formatEta(truck.eta, {
+                      atStop: truck.atStop,
+                      reportedAt: truck.realtime ? truck.time : null,
+                    });
                     return (
                       <div style={{ width: 52, textAlign: 'center', flexShrink: 0 }}>
                         <div style={{
@@ -546,7 +562,10 @@ export function DesktopDashboard({ dark, density }) {
                     }}>{f.address}</div>
                   </div>
                   {(() => {
-                    const ef = formatEta(nearest?.eta, { atStop: nearest?.atStop });
+                    const ef = formatEta(nearest?.eta, {
+                      atStop: nearest?.atStop,
+                      reportedAt: nearest?.reportedAt,
+                    });
                     return (
                       <div style={{ textAlign: 'right' }}>
                         <div style={{

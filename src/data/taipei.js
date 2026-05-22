@@ -28,8 +28,30 @@ export function haversineKm(a, b) {
   return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
+// realtime 車的 forward ETA 本來就是亂猜 (距離 / 15km/h),
+// 因為車不一定朝向使用者。保留 helper 但只給「距離資訊」之用,不再用來算 eta。
 function estimateEta(distanceKm) {
   return Math.max(1, Math.round((distanceKm / 15) * 60));
+}
+
+// NTPC API 的時間字串形如 "2026/05/23 09:08:32" — 解析成 Date,失敗回 null
+export function parseNtpcTime(s) {
+  if (!s) return null;
+  const ms = Date.parse(String(s).replace(/\//g, '-'));
+  return Number.isNaN(ms) ? null : new Date(ms);
+}
+
+// 一台車目前是不是「已過時、不再有意義」?
+//   realtime (NTPC): GPS 最後上報超過 staleMinutes (預設 30 分) 就視為已收工/掉訊
+//   scheduled (台北): 今天該車次已過 (跨日 wrap 過去),今天不會再出現
+export function isTruckStale(truck, { staleMinutes = 30 } = {}) {
+  if (!truck) return false;
+  if (truck.realtime) {
+    const dt = parseNtpcTime(truck.time);
+    if (!dt) return true; // 解析不出來就當作已過時
+    return (Date.now() - dt.getTime()) / 60000 > staleMinutes;
+  }
+  return Boolean(truck.passedToday);
 }
 
 // 把任一 Date 拆成「Asia/Taipei」當地的 year/month/day/hour/minute/second。
@@ -204,6 +226,8 @@ function deriveFromTaipeiRoutes(rows) {
       source: 'taipei',
       realtime: false,
       scheduledArriveMin: eta,
+      // 跨日 wrap 過 → 原本應該今天到,但已過,顯示時當作「已過今天班次」
+      passedToday: arrMin >= 1440,
     };
   });
 
@@ -260,13 +284,14 @@ async function fetchRawTaipeiData() {
 function processRaw(raw, userLocation) {
   const allTrucks = [...raw.ntpcTrucks, ...raw.taipeiTrucks].map((tr) => {
     const distance = haversineKm(userLocation, tr.latlng);
-    // 新北即時: eta = 距離/速度; 台北排程: eta = 排程到達時間
-    const eta = tr.realtime
-      ? estimateEta(distance)
-      : tr.scheduledArriveMin;
+    // realtime 車不算 forward eta (距離 /15 km/h 沒語意,車不必朝你來),
+    // 顯示時改用 tr.time 的最後 GPS 上報時間。
+    // scheduled 台北車的 eta 是排程到下一站的分鐘數,維持有效。
+    const eta = tr.realtime ? null : tr.scheduledArriveMin;
     return {
       ...tr,
       eta,
+      reportedAt: tr.realtime ? tr.time : null,
       distance: Math.round(distance * 10) / 10,
     };
   });
@@ -276,18 +301,30 @@ function processRaw(raw, userLocation) {
     ? [...raw.ntpcStops, ...raw.taipeiStops]
     : raw.taipeiStops;
 
-  const nearest3 = allTrucks.slice(0, 3);
+  // 「下一班」hero 只挑「即將抵達」的車 — 排除掉 GPS 已掉訊或今天班次已過的
+  const upcoming = allTrucks.filter((tr) => !isTruckStale(tr));
+  const nearest3 = upcoming.slice(0, 3);
   const scheduleToday = nearest3.map((tr) => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + tr.eta);
-    const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
+    // 顯示時間: realtime → 最後 GPS 上報時刻; scheduled → now + eta
+    let time = '—';
+    let basis = null;
+    if (tr.realtime) {
+      basis = parseNtpcTime(tr.time);
+    } else if (typeof tr.eta === 'number') {
+      basis = new Date(Date.now() + tr.eta * 60000);
+    }
+    if (basis) {
+      const p = taipeiParts(basis);
+      time = `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`;
+    }
     return {
-      time: `${hh}:${mm}`,
+      time,
       types: tr.accepts,
       route: tr.route,
       eta: tr.eta,
       atStop: tr.atStop || false,
+      reportedAt: tr.realtime ? tr.time : null,
+      realtime: tr.realtime,
       status: tr.atStop ? 'at_stop' : 'upcoming',
     };
   });
@@ -350,8 +387,8 @@ export function applyTruckFilter(trucks, filter) {
   });
 }
 
-// 以任意中心點重算 trucks 的距離 + 排序 + 取前 N / 限制半徑
-// realtime 車 eta 要跟著新中心重算;scheduled 車 eta 是排程固定值,不動。
+// 以任意中心點重算 trucks 的距離 + 排序 + 取前 N / 限制半徑。
+// realtime 車不再算 forward eta (顯示時用 reportedAt);scheduled 車 eta 是排程固定值,不動。
 export function trucksNearCenter(trucks, center, { limit = 20, maxKm = Infinity } = {}) {
   if (!center || !trucks?.length) return [];
   return trucks
@@ -360,7 +397,8 @@ export function trucksNearCenter(trucks, center, { limit = 20, maxKm = Infinity 
       return {
         ...tr,
         distance: Math.round(dist * 10) / 10,
-        eta: tr.realtime ? estimateEta(dist) : tr.eta,
+        // realtime: 維持 null;scheduled: 排程值不變
+        eta: tr.realtime ? null : tr.eta,
       };
     })
     .filter((tr) => tr.distance <= maxKm)
@@ -369,8 +407,8 @@ export function trucksNearCenter(trucks, center, { limit = 20, maxKm = Infinity 
 }
 
 // ── nearest truck for arbitrary location ─────────────────
-// 給定收藏地點的座標,找「最靠近它」的車,並計算從該地點出發的 eta。
-//   realtime 車 (NTPC GPS): eta = 距離 ÷ 速度 (越近越快到)
+// 給定收藏地點的座標,找「最靠近它」的車。
+//   realtime 車 (NTPC GPS): 不提供 forward eta;UI 改用 reportedAt 顯示最後上報時間
 //   scheduled 車 (Taipei): eta = 排程已算好的 minutes-until-arrive
 export function nearestTruckForLocation(latlng, trucks) {
   if (!latlng || !trucks?.length) return null;
@@ -382,8 +420,14 @@ export function nearestTruckForLocation(latlng, trucks) {
   }
   if (!best) return null;
   const distance = Math.round(bestDist * 10) / 10;
-  const eta = best.realtime ? estimateEta(bestDist) : best.eta;
-  return { truck: best, distance, eta, atStop: best.atStop || false };
+  const eta = best.realtime ? null : best.eta;
+  return {
+    truck: best,
+    distance,
+    eta,
+    atStop: best.atStop || false,
+    reportedAt: best.realtime ? best.time : null,
+  };
 }
 
 // ── forward geocoding (address → lat/lng) ─────────────────

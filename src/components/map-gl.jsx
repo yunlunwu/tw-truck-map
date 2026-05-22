@@ -2,12 +2,16 @@ import { useEffect } from 'react';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Circle, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { isTruckStale } from '../data/taipei.js';
 import { formatEta } from './shared.jsx';
 
 const TYPE_LABEL = { general: '一般', recycle: '回收', food: '廚餘' };
 
 function TruckPopupContent({ truck, dark }) {
-  const { value, unit } = formatEta(truck.eta, { atStop: truck.atStop });
+  const { value, unit } = formatEta(truck.eta, {
+    atStop: truck.atStop,
+    reportedAt: truck.realtime ? truck.time : null,
+  });
   const primary = truck.accepts[0];
   const accentColor = {
     general: '#4B5563',
@@ -66,7 +70,10 @@ const TRUCK_COLORS = {
 function truckDivIcon({ truck, dark, selected }) {
   const primary = truck.accepts[0];
   const color = TRUCK_COLORS[primary](dark);
-  const { value, unit } = formatEta(truck.eta);
+  const stale = isTruckStale(truck);
+  const { value, unit } = formatEta(truck.eta, {
+    reportedAt: truck.realtime ? truck.time : null,
+  });
   const label = unit === '分鐘' ? `${value}分` : value;
   const ring = selected ? dark ? '#0E1412' : '#fff' : dark ? '#0E1412' : '#fff';
   const outerRing = selected ? `, 0 0 0 5px ${color}` : '';
@@ -75,7 +82,7 @@ function truckDivIcon({ truck, dark, selected }) {
     iconSize: [58, 34],
     iconAnchor: [29, 34],
     html: `
-      <div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+      <div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;opacity:${stale ? 0.45 : 1};">
         <div style="
           background:${color};color:#fff;border-radius:999px;padding:4px 10px;
           font-weight:700;font-size:12px;letter-spacing:0.3px;white-space:nowrap;
@@ -84,6 +91,7 @@ function truckDivIcon({ truck, dark, selected }) {
           transform:${selected ? 'scale(1.08)' : 'scale(1)'};
           transition:transform 0.15s ease;
           pointer-events:auto;cursor:pointer;
+          filter:${stale ? 'grayscale(0.6)' : 'none'};
         ">${label}</div>
         <div style="
           width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
