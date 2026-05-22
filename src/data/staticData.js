@@ -19,9 +19,7 @@ export const WEEKLY = [
 ];
 export const TODAY_IDX = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
 
-export const FAVORITES = [
-  { name: '家',     address: '大安區永康街47巷8號',        types: ['general', 'food'] },
-];
+export const FAVORITES = [];
 
 export const GUIDE = [
   { type: 'general', title: '一般垃圾(專用垃圾袋)', rule: '必須使用專用垃圾袋',               items: ['廢紙、衛生紙', '保鮮膜', '口罩', '吸管', '菸蒂', '嬰兒尿布'] },

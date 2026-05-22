@@ -1,18 +1,39 @@
 import { Children, cloneElement, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTaipeiData } from '../data/DataContext.jsx';
+import { taipeiParts } from '../data/taipei.js';
 
-// 10 分鐘以內顯示「N 分鐘」;超過 10 分鐘改顯示 24 小時制預計抵達時間
+// 10 分鐘以內顯示「N 分鐘」;超過 10 分鐘改顯示 24 小時制預計抵達時間。
+// 所有時刻都換算成 Asia/Taipei 在地時間 (資料來源就是台北/新北的時刻,使用者人在哪裡都應顯示 Taipei 時間)。
+// 跨日 (今天以外) 會自動帶上日期前綴:明天 → 「明 HH:MM」,更遠 → 「MM/DD HH:MM」。
 // 回傳 { value, unit } 讓呼叫端套到既有的「大數字 + 小單位」版面
 export function formatEta(etaMin, opts = {}) {
   if (opts.atStop) return { value: '靠站', unit: '目前位置', mode: 'now' };
   if (etaMin == null || Number.isNaN(etaMin)) return { value: '—', unit: '分鐘', mode: 'empty' };
   if (etaMin === 0) return { value: '現在', unit: '即將抵達', mode: 'now' };
   if (etaMin <= 10) return { value: String(etaMin), unit: '分鐘', mode: 'minutes' };
-  const arrival = new Date(Date.now() + etaMin * 60000);
-  const hh = String(arrival.getHours()).padStart(2, '0');
-  const mm = String(arrival.getMinutes()).padStart(2, '0');
-  return { value: `${hh}:${mm}`, unit: '預計抵達', mode: 'clock' };
+  const now = new Date();
+  const arrival = new Date(now.getTime() + etaMin * 60000);
+  // 把 now / arrival / tomorrow 都換到 Taipei 時區的日曆切片再比
+  const tpeNow = taipeiParts(now);
+  const tpeArr = taipeiParts(arrival);
+  const tpeTmr = taipeiParts(new Date(now.getTime() + 86400000));
+  const sameDay = tpeNow.year === tpeArr.year && tpeNow.month === tpeArr.month && tpeNow.day === tpeArr.day;
+  const isTomorrow = !sameDay
+    && tpeTmr.year === tpeArr.year && tpeTmr.month === tpeArr.month && tpeTmr.day === tpeArr.day;
+  const hh = String(tpeArr.hour).padStart(2, '0');
+  const mm = String(tpeArr.minute).padStart(2, '0');
+  let value = `${hh}:${mm}`;
+  if (!sameDay) {
+    if (isTomorrow) {
+      value = `明 ${hh}:${mm}`;
+    } else {
+      const mo = String(tpeArr.month).padStart(2, '0');
+      const dy = String(tpeArr.day).padStart(2, '0');
+      value = `${mo}/${dy} ${hh}:${mm}`;
+    }
+  }
+  return { value, unit: '預計抵達', mode: 'clock' };
 }
 
 

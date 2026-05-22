@@ -32,6 +32,22 @@ function estimateEta(distanceKm) {
   return Math.max(1, Math.round((distanceKm / 15) * 60));
 }
 
+// 把任一 Date 拆成「Asia/Taipei」當地的 year/month/day/hour/minute/second。
+// 所有班次時刻、是否過期、是否跨日都以 Taipei 為準,避免使用者本機時區干擾。
+export function taipeiParts(date = new Date()) {
+  // sv-SE locale 給 "YYYY-MM-DD HH:mm:ss" 格式,方便拆
+  const s = date.toLocaleString('sv-SE', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  const [d, t] = s.split(' ');
+  const [year, month, day] = d.split('-').map(Number);
+  const [hour, minute, second] = t.split(':').map(Number);
+  return { year, month, day, hour, minute, second };
+}
+
 function deriveStatus(timeStr) {
   const parsed = Date.parse(timeStr.replace(/\//g, '-'));
   if (Number.isNaN(parsed)) return 'scheduled';
@@ -117,7 +133,9 @@ async function fetchTaipeiCityRoutes() {
 //   stops: 以「地點」去重
 //   scheduledTrucks: 每台車 (車號+路線+車次) 找下一個尚未過的抵達時間
 function deriveFromTaipeiRoutes(rows) {
-  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  // 全部以 Taipei 在地時間為準 (排程資料就是 Taipei 時間)
+  const tpe = taipeiParts();
+  const nowMin = tpe.hour * 60 + tpe.minute;
 
   // 站點去重
   const stopMap = new Map();
@@ -138,29 +156,37 @@ function deriveFromTaipeiRoutes(rows) {
   }
 
   // 每台車找「當前或下一個」站:
-  //   離開時間 < 現在 → 已離開,跳過
+  //   離開時間 < Taipei 現在 → 今天這段過了,把它視為「明天同時刻」(arrMin += 1440)
   //   抵達時間 ≤ 現在 ≤ 離開時間 → 目前靠站中 (at_stop)
   //   抵達時間 > 現在 → 即將到達
-  // 取每 (車號+路線+車次) 離我們最「近」的那筆(最先不被跳過的)
+  // 取每 (車號+路線+車次) 離我們最「近」的那筆 (含跨日 wrap 後的最小 arrMin)
   const truckMap = new Map();
   for (const r of rows) {
-    const arrMin = hhmmToMinutes(r.抵達時間);
-    const leaveMin = hhmmToMinutes(r.離開時間);
-    if (leaveMin < nowMin) continue; // 整個時段都過了,丟掉
+    let arrMin = hhmmToMinutes(r.抵達時間);
+    let leaveMin = hhmmToMinutes(r.離開時間);
+    if (leaveMin < nowMin) {
+      arrMin += 1440;   // 整段已過 → 視為明天同樣時刻
+      leaveMin += 1440;
+    }
     const key = `TP-${r.車號}-${r.路線}-${r.車次}`;
     const existing = truckMap.get(key);
-    if (!existing || hhmmToMinutes(existing.抵達時間) > arrMin) {
-      truckMap.set(key, r);
+    if (!existing || existing._arrMin > arrMin) {
+      truckMap.set(key, { ...r, _arrMin: arrMin, _leaveMin: leaveMin });
     }
   }
 
   const scheduledTrucks = [...truckMap.values()].map((r) => {
-    const arrMin = hhmmToMinutes(r.抵達時間);
-    const leaveMin = hhmmToMinutes(r.離開時間);
+    const arrMin = r._arrMin;
+    const leaveMin = r._leaveMin;
     const atStop = arrMin <= nowMin && nowMin <= leaveMin;
     const eta = atStop ? 0 : Math.max(0, arrMin - nowMin);
-    const hh = String(r.抵達時間).padStart(4, '0');
-    const leaveHh = String(r.離開時間).padStart(4, '0');
+    // arrMin 可能 ≥ 1440 (跨日 wrap),顯示時 mod 1440 取回 HH:MM
+    const arrShow = arrMin % 1440;
+    const leaveShow = leaveMin % 1440;
+    const hh = String(Math.floor(arrShow / 60)).padStart(2, '0');
+    const mm = String(arrShow % 60).padStart(2, '0');
+    const leaveHh = String(Math.floor(leaveShow / 60)).padStart(2, '0');
+    const leaveMm = String(leaveShow % 60).padStart(2, '0');
     return {
       id: `TP-${r.車號}-${r.路線}-${r.車次}`,
       route: `${r.行政區} ${r.路線}`,
@@ -173,8 +199,8 @@ function deriveFromTaipeiRoutes(rows) {
       cityname: r.行政區,
       lineid: r.路線,
       time: atStop
-        ? `靠站中 ${hh.slice(0, 2)}:${hh.slice(2)}–${leaveHh.slice(0, 2)}:${leaveHh.slice(2)}`
-        : `預計 ${hh.slice(0, 2)}:${hh.slice(2)}`,
+        ? `靠站中 ${hh}:${mm}–${leaveHh}:${leaveMm}`
+        : `預計 ${hh}:${mm}`,
       source: 'taipei',
       realtime: false,
       scheduledArriveMin: eta,
@@ -272,7 +298,7 @@ function processRaw(raw, userLocation) {
     stops,
     stopsFull: Boolean(raw.ntpcStops), // SearchScreen 可拿來顯示「載入中」
     scheduleToday,
-    lastUpdated: new Date().toLocaleString('zh-TW', { hour12: false }),
+    lastUpdated: new Date().toLocaleString('zh-TW', { hour12: false, timeZone: 'Asia/Taipei' }),
     dataSource: DATA_SOURCE,
     wasteTypes: WASTE_TYPES,
     weekly: WEEKLY,
