@@ -26,3 +26,7 @@ input { font-family: inherit; }
 
 .phone-scroll::-webkit-scrollbar { display: none; }
 .phone-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 整頁 scrollbar (desktop 主視窗) — 隱藏但仍可滾動 */
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; width: 0; height: 0; }

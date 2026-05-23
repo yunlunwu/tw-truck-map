@@ -1,6 +1,6 @@
 // 以下欄位官方 open API 沒提供,保留為本機靜態設定。
-// wasteTypes 是顯示用的色票 / icon;weekly / favorites / guide 屬於使用者資料
-// 或教學內容,與即時車輛位置無關。
+// wasteTypes 是顯示用的色票 / icon;weekly / guide 屬於教學內容,與即時車輛位置無關。
+// 收藏地點 (favorites) 純由使用者自行新增,localStorage 為唯一來源。
 
 export const WASTE_TYPES = {
   general: { label: '一般垃圾', color: '#6B7280', bg: '#F3F4F6', icon: '🗑' },
@@ -18,8 +18,6 @@ export const WEEKLY = [
   { day: '日', types: [] },
 ];
 export const TODAY_IDX = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-
-export const FAVORITES = [];
 
 export const GUIDE = [
   { type: 'general', title: '一般垃圾(專用垃圾袋)', rule: '必須使用專用垃圾袋',               items: ['廢紙、衛生紙', '保鮮膜', '口罩', '吸管', '菸蒂', '嬰兒尿布'] },
