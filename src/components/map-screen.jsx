@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTaipeiData } from '../data/DataContext.jsx';
 import { applyTruckFilter, isTruckStale, trucksNearCenter } from '../data/taipei.js';
 import { theme, WasteChip, Icon, formatEta, FilterPopover, isTruckFilterActive, Tooltip, TruckListSkeleton } from './shared.jsx';
@@ -86,6 +86,9 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
   const compact = density === 'compact';
   const [filterOpen, setFilterOpen] = useState(false);
   const filterActive = isTruckFilterActive(d.truckFilter);
+  // 換篩選條件後,清單捲回最上面(避免停在舊位置看不到結果)
+  const listRef = useRef(null);
+  useEffect(() => { if (listRef.current) listRef.current.scrollTop = 0; }, [d.truckFilter]);
   return (
     <div style={{
       flexShrink: 0, zIndex: 20,
@@ -112,10 +115,10 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
       }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: t.text, letterSpacing: -0.3 }}>
-            {tr('附近垃圾車')} <span style={{ color: t.textMuted, fontWeight: 500 }}>· {trucks.length}</span>
+            {tr('附近垃圾車')} {!d.loading && <span style={{ color: t.textMuted, fontWeight: 500 }}>· {trucks.length}</span>}
           </div>
           <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
-            {(d.focusedLocation || d.userLocation).name} · {tr('依距離排序')}
+            {d.loading ? tr('載入中…') : <>{(d.focusedLocation || d.userLocation).name} · {tr('依距離排序')}</>}
           </div>
         </div>
         <div style={{ position: 'relative' }}>
@@ -136,13 +139,13 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
         </div>
       </div>
 
-      <div style={{
+      <div ref={listRef} style={{
         flex: 1, overflowY: 'auto', padding: '0 16px 12px',
         display: 'flex', flexDirection: 'column',
         gap: compact ? 6 : 8,
       }}>
         {d.loading && trucks.length === 0 && (
-          <TruckListSkeleton dark={dark} compact={compact} />
+          <TruckListSkeleton dark={dark} compact={compact} label={tr('載入中…')} />
         )}
         {!d.loading && trucks.length === 0 && (
           <div style={{

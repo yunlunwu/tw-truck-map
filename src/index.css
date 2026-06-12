@@ -22,11 +22,14 @@ html, body, #root {
 }
 
 /* loading shimmer for skeleton rows (Nearby trucks while data is fetching) */
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
-.skeleton-row { animation: skeleton-pulse 1.2s ease-in-out infinite; }
+.skeleton-bar {
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.3s linear infinite;
+}
 
 button { font-family: inherit; }
 input { font-family: inherit; }

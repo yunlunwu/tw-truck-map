@@ -375,16 +375,31 @@ export function Tooltip({ children, content, side = 'bottom', delay = 150, dark 
   );
 }
 
-// 「附近垃圾車」清單在初次抓資料時的 loading 骨架(幾排 shimmer 佔位卡)。
-export function TruckListSkeleton({ dark, rows = 4, compact = false }) {
+// 「附近垃圾車」清單在初次抓資料時的 loading 骨架(會 shimmer 掃光的佔位卡 + 標頭)。
+export function TruckListSkeleton({ dark, rows = 4, compact = false, label }) {
   const t = theme(dark);
+  // 對比夠的底色 + 高光,搭配 background-position 掃光動畫,才看得出是 loading。
+  const base = dark ? 'rgba(255,255,255,0.06)' : '#E2DDD2';
+  const hi = dark ? 'rgba(255,255,255,0.20)' : '#F6F3EC';
   const bar = (w, h) => (
-    <div style={{ width: w, height: h, borderRadius: 6, background: t.chip }} />
+    <div className="skeleton-bar" style={{
+      width: w, height: h, borderRadius: 6,
+      backgroundImage: `linear-gradient(90deg, ${base} 25%, ${hi} 50%, ${base} 75%)`,
+    }} />
   );
   return (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: compact ? 6 : 8 }}>
+      {label && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          color: t.accentText, fontSize: 12, fontWeight: 600, padding: '2px 2px 2px',
+        }}>
+          <span style={{ display: 'inline-flex', animation: 'spin 0.9s linear infinite' }}>{Icon.refresh(t.accentText)}</span>
+          {label}
+        </div>
+      )}
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="skeleton-row" style={{
+        <div key={i} style={{
           background: t.surface, border: `0.5px solid ${t.border}`,
           borderRadius: 14, padding: compact ? '11px 14px' : '14px',
           display: 'flex', alignItems: 'center', gap: 12,
@@ -400,7 +415,7 @@ export function TruckListSkeleton({ dark, rows = 4, compact = false }) {
           </div>
         </div>
       ))}
-    </>
+    </div>
   );
 }
 

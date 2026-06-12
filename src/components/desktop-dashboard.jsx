@@ -270,6 +270,9 @@ export function DesktopDashboard({ dark, density }) {
     [d.trucks, d.truckFilter]
   );
   const next = d.scheduleToday[0];
+  // 換篩選條件後,清單捲回最上面
+  const listRef = useRef(null);
+  useEffect(() => { if (listRef.current) listRef.current.scrollTop = 0; }, [d.truckFilter]);
 
   return (
     <div style={{
@@ -334,7 +337,7 @@ export function DesktopDashboard({ dark, density }) {
             </>
           ) : (
             <div style={{ fontSize: 15, fontWeight: 600, marginTop: 10, lineHeight: 1.5 }}>
-              {tr('目前沒有即將抵達的垃圾車')}
+              {d.loading ? tr('載入中…') : tr('目前沒有即將抵達的垃圾車')}
             </div>
           )}
         </div>
@@ -354,7 +357,9 @@ export function DesktopDashboard({ dark, density }) {
                 {tr('附近垃圾車')}
               </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: t.text, letterSpacing: -0.3, marginTop: 2 }}>
-                {filteredTrucks.length}{filterActive ? ` / ${d.trucks.length}` : ''}{tr(' 班 · 依距離排序')}
+                {d.loading
+                  ? tr('載入中…')
+                  : <>{filteredTrucks.length}{filterActive ? ` / ${d.trucks.length}` : ''}{tr(' 班 · 依距離排序')}</>}
               </div>
             </div>
             <div style={{ position: 'relative' }}>
@@ -373,13 +378,13 @@ export function DesktopDashboard({ dark, density }) {
               <FilterPopover dark={dark} open={filterOpen} onClose={() => setFilterOpen(false)} anchor="right" placement="below"/>
             </div>
           </div>
-          <div style={{
+          <div ref={listRef} style={{
             flex: 1, minHeight: 0, overflowY: 'auto',
             display: 'flex', flexDirection: 'column',
             gap: density === 'compact' ? 6 : 8, marginRight: -8, paddingRight: 8,
           }}>
             {d.loading && filteredTrucks.length === 0 && (
-              <TruckListSkeleton dark={dark} compact={density === 'compact'} />
+              <TruckListSkeleton dark={dark} compact={density === 'compact'} label={tr('載入中…')} />
             )}
             {!d.loading && filteredTrucks.length === 0 && (
               <div style={{

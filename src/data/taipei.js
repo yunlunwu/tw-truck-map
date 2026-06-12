@@ -54,6 +54,15 @@ export function isTruckStale(truck, { staleMinutes = 30 } = {}) {
   return Boolean(truck.passedToday);
 }
 
+// 「附近垃圾車」排序:今天即將來的(非 stale)排最前面,已收工/今天班次已過(要等明天)的沉到底;
+// 同一組內再依距離近到遠。
+export function compareTruckPriority(a, b) {
+  const aDone = isTruckStale(a) ? 1 : 0;
+  const bDone = isTruckStale(b) ? 1 : 0;
+  if (aDone !== bDone) return aDone - bDone;   // 即將來的在前,已結束/明天的在後
+  return (a.distance ?? Infinity) - (b.distance ?? Infinity); // 同組內依距離
+}
+
 // 把任一 Date 拆成「Asia/Taipei」當地的 year/month/day/hour/minute/second。
 // 所有班次時刻、是否過期、是否跨日都以 Taipei 為準,避免使用者本機時區干擾。
 export function taipeiParts(date = new Date()) {
@@ -295,7 +304,8 @@ function processRaw(raw, userLocation) {
       distance: Math.round(distance * 10) / 10,
     };
   });
-  allTrucks.sort((a, b) => a.distance - b.distance);
+  // 今天即將來的排前面,已收工/明天的沉到底(同組依距離)
+  allTrucks.sort(compareTruckPriority);
 
   const stops = raw.ntpcStops
     ? [...raw.ntpcStops, ...raw.taipeiStops]
@@ -421,7 +431,7 @@ export function trucksNearCenter(trucks, center, { limit = 20, maxKm = Infinity 
       };
     })
     .filter((tr) => tr.distance <= maxKm)
-    .sort((a, b) => a.distance - b.distance)
+    .sort(compareTruckPriority)
     .slice(0, limit);
 }
 
