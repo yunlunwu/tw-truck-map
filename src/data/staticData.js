@@ -29,3 +29,10 @@ export const DATA_SOURCE = '新北市政府環保局 · data.ntpc.gov.tw';
 
 // 當 geolocation 被拒絕或不可用時的預設位置(新北市永和區)
 export const DEFAULT_LOCATION = { lat: 25.009805, lng: 121.526576, name: '新北市永和區' };
+
+// 給人在國外、想看台北/新北的人:設定裡可把地點釘到台灣某點(覆蓋 GPS,存 localStorage)。
+export const LOCATION_PRESETS = [
+  { id: 'taipei',  name: '台北車站', lat: 25.0478, lng: 121.5173 },
+  { id: 'yonghe',  name: '新北永和', lat: 25.0098, lng: 121.5266 },
+  { id: 'banqiao', name: '新北板橋', lat: 25.0143, lng: 121.4672 },
+];

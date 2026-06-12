@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useTaipeiData } from '../data/DataContext.jsx';
 import { applyTruckFilter, isTruckStale, trucksNearCenter } from '../data/taipei.js';
-import { theme, WasteChip, Icon, formatEta, FilterPopover, isTruckFilterActive, Tooltip } from './shared.jsx';
+import { theme, WasteChip, Icon, formatEta, FilterPopover, isTruckFilterActive, Tooltip, TruckListSkeleton } from './shared.jsx';
 import { MapGL } from './map-gl.jsx';
+import { useLang } from '../i18n.jsx';
 
 function SearchBar({ dark }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   return (
@@ -27,7 +29,7 @@ function SearchBar({ dark }) {
         <input
           value={d.searchQuery}
           onChange={(e) => d.setSearchQuery(e.target.value)}
-          placeholder="搜尋地址或地標…"
+          placeholder={tr('搜尋地址或地標…')}
           autoComplete="off"
           inputMode="search"
           style={{
@@ -41,7 +43,7 @@ function SearchBar({ dark }) {
             background: t.accent, color: '#fff', border: 'none',
             padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
             cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-          }}>查看</button>
+          }}>{tr('查看')}</button>
         )}
       </label>
     </div>
@@ -49,6 +51,7 @@ function SearchBar({ dark }) {
 }
 
 function StatusStrip({ dark }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   return (
@@ -70,13 +73,14 @@ function StatusStrip({ dark }) {
           boxShadow: '0 0 0 3px rgba(43,166,111,0.2)',
           animation: 'pulse 2s infinite',
         }}/>
-        即時 · {d.trucks.length} 輛運行中
+        {tr('即時 · {n} 輛運行中', { n: d.trucks.length })}
       </div>
     </div>
   );
 }
 
 function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   const compact = density === 'compact';
@@ -108,10 +112,10 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
       }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: t.text, letterSpacing: -0.3 }}>
-            附近垃圾車 <span style={{ color: t.textMuted, fontWeight: 500 }}>· {trucks.length}</span>
+            {tr('附近垃圾車')} <span style={{ color: t.textMuted, fontWeight: 500 }}>· {trucks.length}</span>
           </div>
           <div style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>
-            {(d.focusedLocation || d.userLocation).name} · 依距離排序
+            {(d.focusedLocation || d.userLocation).name} · {tr('依距離排序')}
           </div>
         </div>
         <div style={{ position: 'relative' }}>
@@ -126,7 +130,7 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
               fontSize: 12.5, fontWeight: 600, padding: filterActive ? '3px 9px' : 4,
               borderRadius: 999, fontFamily: 'inherit',
             }}>
-            {Icon.filter(filterActive ? t.accentText : t.textMuted)} 篩選{filterActive ? ' ·' : ''}
+            {Icon.filter(filterActive ? t.accentText : t.textMuted)} {tr('篩選')}{filterActive ? ' ·' : ''}
           </button>
           <FilterPopover dark={dark} open={filterOpen} onClose={() => setFilterOpen(false)} anchor="right" placement="below"/>
         </div>
@@ -137,12 +141,15 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
         display: 'flex', flexDirection: 'column',
         gap: compact ? 6 : 8,
       }}>
-        {trucks.length === 0 && (
+        {d.loading && trucks.length === 0 && (
+          <TruckListSkeleton dark={dark} compact={compact} />
+        )}
+        {!d.loading && trucks.length === 0 && (
           <div style={{
             padding: '28px 16px', textAlign: 'center',
             color: t.textMuted, fontSize: 13,
           }}>
-            目前無運行中的垃圾車,可能為離峰時段。
+            {tr('目前無運行中的垃圾車,可能為離峰時段。')}
           </div>
         )}
         {trucks.map(truck => {
@@ -175,6 +182,7 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
                 const f = formatEta(truck.eta, {
                   atStop: truck.atStop,
                   reportedAt: truck.realtime ? truck.time : null,
+                  t: tr,
                 });
                 return (
                   <div style={{
@@ -203,7 +211,7 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
                     fontSize: 10, fontWeight: 700, padding: '1.5px 6px', borderRadius: 4,
                     background: truck.realtime ? '#E8F3EE' : t.chip,
                     color: truck.realtime ? '#0F7B5A' : t.textMuted,
-                  }}>{truck.realtime ? '即時' : '排程'}</span>
+                  }}>{truck.realtime ? tr('即時') : tr('排程')}</span>
                 </div>
                 <div style={{
                   fontSize: 12, color: t.textMuted, marginBottom: compact ? 4 : 6,
@@ -231,6 +239,7 @@ function BottomSheet({ dark, trucks, selectedTruck, setSelectedTruck, density })
 }
 
 export function MapScreen({ dark, setTab, density }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   const effectiveCenter = d.focusedLocation || d.userLocation;
@@ -280,7 +289,7 @@ export function MapScreen({ dark, setTab, density }) {
             {Icon.pin(dark ? '#4FBE95' : '#0F7B5A')}
             <Tooltip content={d.focusedLocation.name} dark={dark}>
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>
-                顯示中:{d.focusedLocation.name}
+                {tr('顯示中:{name}', { name: d.focusedLocation.name })}
               </span>
             </Tooltip>
             <div>
@@ -288,7 +297,7 @@ export function MapScreen({ dark, setTab, density }) {
                   background: 'none', border: 'none', cursor: 'pointer',
                   color: 'inherit', fontSize: 14, lineHeight: 1, padding: 2,
                   }}>
-                  返回目前位置
+                  {tr('返回目前位置')}
                 </button>
                  <button onClick={() => d.setFocusedLocation(null)} style={{
                   background: 'none', border: 'none', cursor: 'pointer',
@@ -308,8 +317,8 @@ export function MapScreen({ dark, setTab, density }) {
           <button
             onClick={d.reloadData}
             disabled={d.isRefreshing}
-            aria-label="刷新資料"
-            title="刷新資料"
+            aria-label={tr('刷新資料')}
+            title={tr('刷新資料')}
             style={{
               ...floatBtnStyle,
               cursor: d.isRefreshing ? 'wait' : 'pointer',

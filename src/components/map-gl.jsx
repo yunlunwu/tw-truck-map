@@ -4,13 +4,16 @@ import { MapContainer, TileLayer, Marker, Circle, Popup, useMap } from 'react-le
 import 'leaflet/dist/leaflet.css';
 import { isTruckStale } from '../data/taipei.js';
 import { formatEta } from './shared.jsx';
+import { useLang } from '../i18n.jsx';
 
 const TYPE_LABEL = { general: '一般', recycle: '回收', food: '廚餘' };
 
 function TruckPopupContent({ truck, dark }) {
+  const { t: tr } = useLang();
   const { value, unit } = formatEta(truck.eta, {
     atStop: truck.atStop,
     reportedAt: truck.realtime ? truck.time : null,
+    t: tr,
   });
   const primary = truck.accepts[0];
   const accentColor = {
@@ -29,10 +32,10 @@ function TruckPopupContent({ truck, dark }) {
           fontSize: 10, fontWeight: 700, padding: '1.5px 6px', borderRadius: 4,
           background: truck.realtime ? '#E8F3EE' : '#F3F4F6',
           color: truck.realtime ? '#0F7B5A' : '#6B7280',
-        }}>{truck.realtime ? '即時' : '排程'}</span>
+        }}>{truck.realtime ? tr('即時') : tr('排程')}</span>
       </div>
       <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8, lineHeight: 1.4 }}>
-        {truck.atStop ? '目前位置' : '下一站'} · {truck.currentStop}
+        {truck.atStop ? tr('目前位置') : tr('下一站')} · {truck.currentStop}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
         <span style={{
@@ -49,7 +52,7 @@ function TruckPopupContent({ truck, dark }) {
             background: a === 'recycle' ? '#E8F3EE' : a === 'food' ? '#FBEEE4' : '#ECEAE4',
             color: a === 'recycle' ? '#0F7B5A' : a === 'food' ? '#B85C2E' : '#4B5563',
             fontWeight: 600,
-          }}>{TYPE_LABEL[a] || a}</span>
+          }}>{TYPE_LABEL[a] ? tr(TYPE_LABEL[a]) : a}</span>
         ))}
       </div>
     </div>
@@ -67,14 +70,15 @@ const TRUCK_COLORS = {
   food:    () => '#B85C2E',
 };
 
-function truckDivIcon({ truck, dark, selected }) {
+function truckDivIcon({ truck, dark, selected, tr = (s) => s }) {
   const primary = truck.accepts[0];
   const color = TRUCK_COLORS[primary](dark);
   const stale = isTruckStale(truck);
-  const { value, unit } = formatEta(truck.eta, {
+  const { value, mode } = formatEta(truck.eta, {
     reportedAt: truck.realtime ? truck.time : null,
+    t: tr,
   });
-  const label = unit === '分鐘' ? `${value}分` : value;
+  const label = mode === 'minutes' ? `${value}${tr('分')}` : value;
   const ring = selected ? dark ? '#0E1412' : '#fff' : dark ? '#0E1412' : '#fff';
   const outerRing = selected ? `, 0 0 0 5px ${color}` : '';
   return L.divIcon({
@@ -155,6 +159,7 @@ export function MapGL({
   zoom,
   style,
 }) {
+  const { t: translate } = useLang();
   if (!center) return null;
   const tileUrl = dark ? DARK_TILE : LIGHT_TILE;
   return (
@@ -184,7 +189,7 @@ export function MapGL({
         <Marker
           key={tr.id}
           position={[tr.latlng.lat, tr.latlng.lng]}
-          icon={truckDivIcon({ truck: tr, dark, selected: selectedId === tr.id })}
+          icon={truckDivIcon({ truck: tr, dark, selected: selectedId === tr.id, tr: translate })}
           eventHandlers={onSelect ? { click: () => onSelect(tr) } : undefined}
         >
           <Popup>

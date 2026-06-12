@@ -4,8 +4,10 @@ import { haversineKm, isTruckStale, nearestTruckForLocation } from '../data/taip
 import { useFavorites } from '../data/useFavorites.js';
 import { theme, WasteChip, Icon, formatEta } from './shared.jsx';
 import { AddFavoriteModal } from './AddFavoriteModal.jsx';
+import { useLang } from '../i18n.jsx';
 
 export function ScheduleScreen({ dark, density }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   const compact = density === 'compact';
@@ -14,10 +16,10 @@ export function ScheduleScreen({ dark, density }) {
     <div style={{ position: 'absolute', inset: 0, background: t.bg, overflow: 'auto', paddingBottom: 100 }}>
       <div style={{ padding: '62px 20px 0' }}>
         <div style={{ fontSize: 12.5, color: t.textMuted, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>
-          我的位置
+          {tr('我的位置')}
         </div>
         <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -0.6, marginTop: 4, lineHeight: 1.15 }}>
-          今日收集時刻
+          {tr('今日收集時刻')}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6, color: t.textMuted, fontSize: 13 }}>
           {Icon.pin(t.accentText)}
@@ -39,26 +41,26 @@ export function ScheduleScreen({ dark, density }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 1.5, opacity: 0.85 }}>
-            下一班即將抵達
+            {tr('下一班即將抵達')}
           </div>
           {next && (
             <div style={{
               padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.18)',
               fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4,
-            }}>即時</div>
+            }}>{tr('即時')}</div>
           )}
         </div>
         {next ? (
           <>
             {(() => {
-              const f = formatEta(next.eta, { atStop: next.atStop, reportedAt: next.reportedAt });
+              const f = formatEta(next.eta, { atStop: next.atStop, reportedAt: next.reportedAt, t: tr });
               return (
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 10 }}>
                   <span style={{
                     fontSize: f.mode === 'clock' ? 48 : 64, fontWeight: 800, letterSpacing: -3, lineHeight: 0.9,
                     fontFeatureSettings: '"tnum"', fontVariantNumeric: 'tabular-nums',
                   }}>{f.value}</span>
-                  <span style={{ fontSize: 15, fontWeight: 600, opacity: 0.9 }}>{f.mode === 'minutes' ? '分鐘後' : f.unit}</span>
+                  <span style={{ fontSize: 15, fontWeight: 600, opacity: 0.9 }}>{f.mode === 'minutes' ? tr('分鐘後') : f.unit}</span>
                   <span style={{ marginLeft: 'auto', fontSize: 22, fontWeight: 700, letterSpacing: -0.4 }}>{next.time}</span>
                 </div>
               );
@@ -86,21 +88,21 @@ export function ScheduleScreen({ dark, density }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               fontFamily: 'inherit',
             }}>
-              {Icon.bell('#fff')} 提前 5 分鐘提醒我
+              {Icon.bell('#fff')} {tr('提前 5 分鐘提醒我')}
             </button>
           </>
         ) : (
           <div style={{ fontSize: 14.5, fontWeight: 600, marginTop: 14, lineHeight: 1.5 }}>
-            目前沒有即將抵達的垃圾車
+            {tr('目前沒有即將抵達的垃圾車')}
           </div>
         )}
       </div>
 
       <div style={{ padding: '24px 20px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>
-          今日其餘班次
+          {tr('今日其餘班次')}
         </div>
-        <div style={{ fontSize: 12, color: t.textDim }}>04/21 週二</div>
+        <div style={{ fontSize: 12, color: t.textDim }}>{tr('04/21 週二')}</div>
       </div>
       <div style={{
         margin: '0 16px', background: t.surface, borderRadius: 16,
@@ -128,7 +130,7 @@ export function ScheduleScreen({ dark, density }) {
               <div style={{
                 fontSize: 11.5, color: t.textMuted, fontWeight: 600,
                 padding: '4px 9px', borderRadius: 999, background: t.chip,
-              }}>{s.eta}分</div>
+              }}>{s.eta}{tr(' 分')}</div>
             )}
           </div>
         ))}
@@ -136,7 +138,7 @@ export function ScheduleScreen({ dark, density }) {
 
       <div style={{ padding: '24px 20px 8px' }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>
-          本週收集日
+          {tr('本週收集日')}
         </div>
       </div>
       <div style={{
@@ -172,7 +174,7 @@ export function ScheduleScreen({ dark, density }) {
                     }}/>
                   );
                 }) : (
-                  <span style={{ fontSize: 10, color: t.textDim, marginTop: 6 }}>停收</span>
+                  <span style={{ fontSize: 10, color: t.textDim, marginTop: 6 }}>{tr('停收')}</span>
                 )}
               </div>
             </div>
@@ -188,8 +190,8 @@ export function ScheduleScreen({ dark, density }) {
       }}>
         <div style={{ fontSize: 16, color: t.accentText, lineHeight: 1 }}>ⓘ</div>
         <div style={{ fontSize: 11.5, color: t.textMuted, lineHeight: 1.5 }}>
-          資料來源:{d.dataSource}<br/>
-          最後更新 {d.lastUpdated}
+          {tr('資料來源:')}{d.dataSource}<br/>
+          {tr('最後更新 ')}{d.lastUpdated}
         </div>
       </div>
     </div>
@@ -197,6 +199,7 @@ export function ScheduleScreen({ dark, density }) {
 }
 
 export function SearchScreen({ dark, density }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   const query = d.searchQuery;
@@ -223,7 +226,7 @@ export function SearchScreen({ dark, density }) {
   const q = query.trim();
   const qLower = q.toLowerCase();
   const effectiveCenter = searchCenter?.latlng || d.userLocation;
-  const locLabel = searchCenter?.name || d.userLocation?.name || '目前位置';
+  const locLabel = searchCenter?.name || d.userLocation?.name || tr('目前位置');
 
   // 地址搜尋 —— 把 query 當關鍵字比對 stops gazetteer 的 name/city/village
   const stopMatches = useMemo(() => {
@@ -271,7 +274,7 @@ export function SearchScreen({ dark, density }) {
     <div style={{ position: 'absolute', inset: 0, background: t.bg, overflow: 'auto', paddingBottom: 100 }}>
       <div style={{ padding: '32px 20px 0' }}>
         <div style={{ fontSize: 24, fontWeight: 700, color: t.text, letterSpacing: -0.6, lineHeight: 1.15 }}>
-          地址搜尋
+          {tr('地址搜尋')}
         </div>
       </div>
 
@@ -287,7 +290,7 @@ export function SearchScreen({ dark, density }) {
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="輸入行政區、路線或車牌"
+          placeholder={tr('輸入行政區、路線或車牌')}
           autoComplete="off"
           inputMode="search"
           style={{
@@ -312,20 +315,20 @@ export function SearchScreen({ dark, density }) {
 
       <div style={{ padding: '8px 20px 0', fontSize: 12.5, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
         {Icon.pin(t.accentText)}
-        <span>以「{locLabel}」為中心 · {radiusKm.toFixed(1)} km</span>
+        <span>{tr('以「{loc}」為中心 · ', { loc: locLabel })}{radiusKm.toFixed(1)} km</span>
         {searchCenter && (
           <button onClick={() => setSearchCenter(null)} style={{
             marginLeft: 6, padding: '2px 8px', borderRadius: 999,
             background: t.chip, color: t.accentText, border: 'none',
             fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-          }}>清除</button>
+          }}>{tr('清除')}</button>
         )}
       </div>
 
       <div style={{ padding: '14px 20px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 600, letterSpacing: 0.5 }}>搜尋半徑</span>
-          <span style={{ fontSize: 13, color: t.text, fontWeight: 700 }}>{radiusKm.toFixed(1)} 公里</span>
+          <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 600, letterSpacing: 0.5 }}>{tr('搜尋半徑')}</span>
+          <span style={{ fontSize: 13, color: t.text, fontWeight: 700 }}>{radiusKm.toFixed(1)}{tr(' 公里')}</span>
         </div>
         <input type="range" min="0.5" max="10" step="0.5"
           value={radiusKm} onChange={(e) => setRadiusKm(parseFloat(e.target.value))}
@@ -339,9 +342,9 @@ export function SearchScreen({ dark, density }) {
         <>
           <div style={{ padding: '22px 20px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>
-              地址配對 · {stopMatches.length} 筆
+              {tr('地址配對 · {n} 筆', { n: stopMatches.length })}
             </div>
-            <div style={{ fontSize: 11, color: t.textDim, fontWeight: 500 }}>點選設為搜尋中心</div>
+            <div style={{ fontSize: 11, color: t.textDim, fontWeight: 500 }}>{tr('點選設為搜尋中心')}</div>
           </div>
           <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {stopMatches.map((s) => {
@@ -368,7 +371,7 @@ export function SearchScreen({ dark, density }) {
                     </div>
                   </div>
                   {active && (
-                    <span style={{ fontSize: 10.5, color: t.accentText, fontWeight: 700 }}>中心</span>
+                    <span style={{ fontSize: 10.5, color: t.accentText, fontWeight: 700 }}>{tr('中心')}</span>
                   )}
                 </button>
               );
@@ -379,9 +382,9 @@ export function SearchScreen({ dark, density }) {
 
       <div style={{ padding: '22px 20px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <div style={{ fontSize: 12.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>
-          附近車輛 · {truckResults.length} 班
+          {tr('附近車輛 · {n} 班', { n: truckResults.length })}
         </div>
-        <div style={{ fontSize: 11.5, color: t.accentText, fontWeight: 600 }}>依距離排序</div>
+        <div style={{ fontSize: 11.5, color: t.accentText, fontWeight: 600 }}>{tr('依距離排序')}</div>
       </div>
 
       <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -392,8 +395,8 @@ export function SearchScreen({ dark, density }) {
             borderRadius: 14, color: t.textMuted, fontSize: 13,
           }}>
             {q
-              ? `找不到符合「${query}」的車輛 · 可調大半徑或清除關鍵字`
-              : `半徑 ${radiusKm} 公里內目前沒有運行中的垃圾車`}
+              ? tr('找不到符合「{q}」的車輛 · 可調大半徑或清除關鍵字', { q: query })
+              : tr('半徑 {r} 公里內目前沒有運行中的垃圾車', { r: radiusKm })}
           </div>
         )}
         {truckResults.map(truck => {
@@ -433,7 +436,7 @@ export function SearchScreen({ dark, density }) {
                     fontSize: 10, fontWeight: 700, padding: '1.5px 6px', borderRadius: 4,
                     background: truck.realtime ? '#E8F3EE' : t.chip,
                     color: truck.realtime ? '#0F7B5A' : t.textMuted,
-                  }}>{truck.realtime ? '即時' : '排程'}</span>
+                  }}>{truck.realtime ? tr('即時') : tr('排程')}</span>
                   <span style={{ fontSize: 11, color: t.textDim, fontWeight: 600, marginLeft: 'auto' }}>{truck.distance} km</span>
                 </div>
                 <div style={{
@@ -450,6 +453,7 @@ export function SearchScreen({ dark, density }) {
                 const f = formatEta(truck.eta, {
                   atStop: truck.atStop,
                   reportedAt: truck.realtime ? truck.time : null,
+                  t: tr,
                 });
                 return (
                   <div style={{ textAlign: 'right', minWidth: 60 }}>
@@ -467,7 +471,7 @@ export function SearchScreen({ dark, density }) {
       </div>
 
       <div style={{ padding: '22px 20px 10px', fontSize: 12.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>
-        最近搜尋
+        {tr('最近搜尋')}
       </div>
       <div style={{ padding: '0 16px' }}>
         {recents.map((r, i) => (
@@ -487,6 +491,7 @@ export function SearchScreen({ dark, density }) {
 }
 
 export function FavoritesScreen({ dark, density, setTab }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   const { favorites, addFavorite, removeFavorite } = useFavorites();
@@ -505,16 +510,16 @@ export function FavoritesScreen({ dark, density, setTab }) {
       <div style={{ padding: '62px 20px 18px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -0.6, lineHeight: 1.15 }}>
-            收藏地點
+            {tr('收藏地點')}
           </div>
-          <div style={{ fontSize: 13, color: t.textMuted, marginTop: 4 }}>常用地點的收集時刻</div>
+          <div style={{ fontSize: 13, color: t.textMuted, marginTop: 4 }}>{tr('常用地點的收集時刻')}</div>
         </div>
         <button onClick={() => setModalOpen(true)} style={{
           background: t.accent, color: '#fff', border: 'none',
           borderRadius: 999, padding: '7px 12px', fontSize: 12.5, fontWeight: 700,
           display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontFamily: 'inherit',
         }}>
-          {Icon.plus('#fff')} 新增
+          {Icon.plus('#fff')} {tr('新增')}
         </button>
       </div>
 
@@ -558,13 +563,14 @@ export function FavoritesScreen({ dark, density, setTab }) {
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>{f.address}</div>
                   {!f.latlng && (
-                    <div style={{ fontSize: 11, color: '#B85C2E', marginTop: 2 }}>地址無法解析,無法計算距離</div>
+                    <div style={{ fontSize: 11, color: '#B85C2E', marginTop: 2 }}>{tr('地址無法解析,無法計算距離')}</div>
                   )}
                 </div>
                 {(() => {
                   const ef = formatEta(nearest?.eta, {
                     atStop: nearest?.atStop,
                     reportedAt: nearest?.reportedAt,
+                    t: tr,
                   });
                   return (
                     <div style={{ textAlign: 'right' }}>
@@ -585,27 +591,27 @@ export function FavoritesScreen({ dark, density, setTab }) {
                   {(f.types || []).map(a => <WasteChip key={a} type={a} dark={dark}/>)}
                   {nearest && (
                     <span style={{ fontSize: 11, color: t.textDim, fontWeight: 500, alignSelf: 'center' }}>
-                      最近 {nearest.distance} km · {nearest.truck.route}
+                      {tr('最近 {n} km · ', { n: nearest.distance })}{nearest.truck.route}
                     </span>
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   {canFocus && (
                     <span style={{ fontSize: 11, color: t.accentText, fontWeight: 700 }}>
-                      看附近車輛 →
+                      {tr('看附近車輛 →')}
                     </span>
                   )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (window.confirm(`刪除「${f.name}」?`)) removeFavorite(f.id);
+                      if (window.confirm(tr('刪除「{name}」?', { name: f.name }))) removeFavorite(f.id);
                     }}
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', gap: 4,
                       fontSize: 12, fontWeight: 600, color: t.textMuted, fontFamily: 'inherit',
                     }}
-                  >刪除</button>
+                  >{tr('刪除')}</button>
                 </div>
               </div>
             </div>
@@ -617,7 +623,7 @@ export function FavoritesScreen({ dark, density, setTab }) {
             background: t.surface, border: `1.5px dashed ${t.border}`, borderRadius: 16,
             color: t.textMuted, fontSize: 13,
           }}>
-            還沒有收藏地點。按右上角「新增」加入常去的地方。
+            {tr('還沒有收藏地點。按右上角「新增」加入常去的地方。')}
           </div>
         )}
       </div>
@@ -630,8 +636,8 @@ export function FavoritesScreen({ dark, density, setTab }) {
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
           fontFamily: 'inherit',
         }}>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text }}>新增常用地點</div>
-          <div style={{ fontSize: 11.5 }}>住家、公司、學校… 隨時查看收集時刻</div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text }}>{tr('新增常用地點')}</div>
+          <div style={{ fontSize: 11.5 }}>{tr('住家、公司、學校… 隨時查看收集時刻')}</div>
         </button>
       </div>
 
@@ -647,6 +653,7 @@ export function FavoritesScreen({ dark, density, setTab }) {
 }
 
 export function GuideScreen({ dark }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   const [active, setActive] = useState('general');
@@ -665,10 +672,10 @@ export function GuideScreen({ dark }) {
     <div style={{ position: 'absolute', inset: 0, background: t.bg, overflow: 'auto', paddingBottom: 100 }}>
       <div style={{ padding: '62px 20px 0' }}>
         <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -0.6, lineHeight: 1.15 }}>
-          分類指南
+          {tr('分類指南')}
         </div>
         <div style={{ fontSize: 13, color: t.textMuted, marginTop: 4 }}>
-          什麼垃圾該上哪一台車
+          {tr('什麼垃圾該上哪一台車')}
         </div>
       </div>
 
@@ -726,12 +733,12 @@ export function GuideScreen({ dark }) {
       </div>
 
       <div style={{ padding: '22px 20px 10px', fontSize: 12.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1, textTransform: 'uppercase' }}>
-        如何辨識垃圾車
+        {tr('如何辨識垃圾車')}
       </div>
       <div style={{ padding: '0 16px' }}>
         <div style={{ background: t.surface, border: `0.5px solid ${t.border}`, borderRadius: 14, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ fontSize: 12.5, color: t.textMuted, lineHeight: 1.6 }}>
-            黃色車身為<span style={{ color: t.text, fontWeight: 600 }}>一般垃圾車</span>,後方通常跟隨<span style={{ color: t.accentText, fontWeight: 600 }}>資源回收車</span>。<span style={{ color: '#B85C2E', fontWeight: 600 }}>廚餘</span>由清潔隊員如行收取,分「養豬」、「菜」、「加熱」桶。
+            {tr('黃色車身為')}<span style={{ color: t.text, fontWeight: 600 }}>{tr('一般垃圾車')}</span>{tr(',後方通常跟隨')}<span style={{ color: t.accentText, fontWeight: 600 }}>{tr('資源回收車')}</span>{tr('。')}<span style={{ color: '#B85C2E', fontWeight: 600 }}>{tr('廚餘')}</span>{tr('由清潔隊員如行收取,分「養豬」、「菜」、「加熱」桶。')}
           </div>
         </div>
       </div>

@@ -350,6 +350,25 @@ export function getCachedTaipeiData(userLocation = DEFAULT_LOCATION) {
   return cached ? processRaw(cached.data, userLocation) : null;
 }
 
+// 首屏立即渲染用的空骨架:靜態內容(類型/指南/星期)齊全、trucks 為空。
+// 真資料抓回後再 setData 替換,使用者不必盯著全螢幕 loading。
+export function getSkeletonTaipeiData(userLocation = DEFAULT_LOCATION) {
+  return {
+    userLocation,
+    trucks: [],
+    stops: [],
+    stopsFull: false,
+    scheduleToday: [],
+    lastUpdated: '—',
+    dataSource: DATA_SOURCE,
+    wasteTypes: WASTE_TYPES,
+    weekly: WEEKLY,
+    todayIdx: TODAY_IDX,
+    guide: GUIDE,
+    loading: true,
+  };
+}
+
 export async function fetchTaipeiData(userLocation = DEFAULT_LOCATION) {
   const raw = await fetchRawTaipeiData();
   // 保留上次抓過的 ntpcStops (如果還在 cache 裡的話)

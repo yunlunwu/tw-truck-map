@@ -1,17 +1,33 @@
-import { Fragment, useEffect, useState } from 'react';
-import { fetchTaipeiData, reverseGeocode, getCachedTaipeiData, ensureNtpcStops } from './data/taipei.js';
-import { DEFAULT_LOCATION } from './data/staticData.js';
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { fetchTaipeiData, reverseGeocode, getCachedTaipeiData, getSkeletonTaipeiData, ensureNtpcStops } from './data/taipei.js';
+import { DEFAULT_LOCATION, LOCATION_PRESETS } from './data/staticData.js';
 import { TaipeiDataProvider } from './data/DataContext.jsx';
 import { theme, TabBar, Icon } from './components/shared.jsx';
 import { MapScreen } from './components/map-screen.jsx';
-import {
-  ScheduleScreen, SearchScreen, FavoritesScreen, GuideScreen,
-} from './components/other-screens.jsx';
 import { DesktopDashboard } from './components/desktop-dashboard.jsx';
+import { useLang, localizeData, LANGS } from './i18n.jsx';
 
-function TweaksPanel({ dark, setDark, density, setDensity, visible, onClose }) {
+// Manual location override (for viewing Taiwan from abroad). Persisted so it sticks.
+const LOC_OVERRIDE_KEY = 'locationOverride';
+function readLocationOverride() {
+  try {
+    const o = JSON.parse(localStorage.getItem(LOC_OVERRIDE_KEY));
+    return o && typeof o.lat === 'number' && typeof o.lng === 'number' ? o : null;
+  } catch { return null; }
+}
+
+// Secondary tabs aren't the first screen — lazy-load them so they stay out of
+// the initial bundle (smaller, faster first paint). They load when first opened.
+const ScheduleScreen = lazy(() => import('./components/other-screens.jsx').then((m) => ({ default: m.ScheduleScreen })));
+const SearchScreen = lazy(() => import('./components/other-screens.jsx').then((m) => ({ default: m.SearchScreen })));
+const FavoritesScreen = lazy(() => import('./components/other-screens.jsx').then((m) => ({ default: m.FavoritesScreen })));
+const GuideScreen = lazy(() => import('./components/other-screens.jsx').then((m) => ({ default: m.GuideScreen })));
+
+function TweaksPanel({ dark, setDark, density, setDensity, locOverride, chooseLocation, visible, onClose }) {
+  const { lang, setLang, t: tr } = useLang();
   if (!visible) return null;
   const t = theme(dark);
+  const samePreset = (p) => locOverride && Math.abs(locOverride.lat - p.lat) < 1e-6 && Math.abs(locOverride.lng - p.lng) < 1e-6;
   return (
     <div style={{
       position: 'fixed', bottom: 20, right: 20, zIndex: 200,
@@ -24,7 +40,7 @@ function TweaksPanel({ dark, setDark, density, setDensity, visible, onClose }) {
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase', color: t.textMuted }}>
-          設定
+          {tr('設定')}
         </div>
         <button onClick={onClose} style={{
           background: 'none', border: 'none', cursor: 'pointer', padding: 4,
@@ -32,7 +48,7 @@ function TweaksPanel({ dark, setDark, density, setDensity, visible, onClose }) {
         }}>×</button>
       </div>
 
-      <div style={{ fontSize: 12, color: t.textMuted, fontWeight: 600, marginBottom: 6 }}>外觀</div>
+      <div style={{ fontSize: 12, color: t.textMuted, fontWeight: 600, marginBottom: 6 }}>{tr('外觀')}</div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
         {[{ k: false, l: '淺色' }, { k: true, l: '深色' }].map(o => (
           <button key={o.l} onClick={() => setDark(o.k)} style={{
@@ -41,12 +57,12 @@ function TweaksPanel({ dark, setDark, density, setDensity, visible, onClose }) {
             color: dark === o.k ? '#fff' : t.text,
             border: `1px solid ${dark === o.k ? t.accent : t.border}`,
             fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-          }}>{o.l}</button>
+          }}>{tr(o.l)}</button>
         ))}
       </div>
 
-      <div style={{ fontSize: 12, color: t.textMuted, fontWeight: 600, marginBottom: 6 }}>資訊密度</div>
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div style={{ fontSize: 12, color: t.textMuted, fontWeight: 600, marginBottom: 6 }}>{tr('資訊密度')}</div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
         {[{ k: 'comfortable', l: '舒適' }, { k: 'compact', l: '緊湊' }].map(o => (
           <button key={o.k} onClick={() => setDensity(o.k)} style={{
             flex: 1, padding: '8px', borderRadius: 10,
@@ -54,8 +70,44 @@ function TweaksPanel({ dark, setDark, density, setDensity, visible, onClose }) {
             color: density === o.k ? '#fff' : t.text,
             border: `1px solid ${density === o.k ? t.accent : t.border}`,
             fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-          }}>{o.l}</button>
+          }}>{tr(o.l)}</button>
         ))}
+      </div>
+
+      <div style={{ fontSize: 12, color: t.textMuted, fontWeight: 600, marginBottom: 6 }}>{tr('語言')}</div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+        {LANGS.map(o => (
+          <button key={o.id} onClick={() => setLang(o.id)} style={{
+            flex: 1, padding: '8px', borderRadius: 10,
+            background: lang === o.id ? t.accent : 'transparent',
+            color: lang === o.id ? '#fff' : t.text,
+            border: `1px solid ${lang === o.id ? t.accent : t.border}`,
+            fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+          }}>{o.label}</button>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 12, color: t.textMuted, fontWeight: 600, marginBottom: 6 }}>{tr('位置')}</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <button onClick={() => chooseLocation(null)} style={{
+          flex: '1 0 100%', padding: '8px', borderRadius: 10,
+          background: !locOverride ? t.accent : 'transparent',
+          color: !locOverride ? '#fff' : t.text,
+          border: `1px solid ${!locOverride ? t.accent : t.border}`,
+          fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+        }}>{tr('自動 (GPS)')}</button>
+        {LOCATION_PRESETS.map(p => {
+          const active = samePreset(p);
+          return (
+            <button key={p.id} onClick={() => chooseLocation(p)} style={{
+              flex: '1 0 28%', padding: '8px 4px', borderRadius: 10,
+              background: active ? t.accent : 'transparent',
+              color: active ? '#fff' : t.text,
+              border: `1px solid ${active ? t.accent : t.border}`,
+              fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+            }}>{tr(p.name)}</button>
+          );
+        })}
       </div>
     </div>
   );
@@ -68,11 +120,18 @@ function App() {
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // 初次 paint 先用 localStorage cache;沒就 null,loading 畫面繼續顯示
-  const [data, setData] = useState(() => getCachedTaipeiData(DEFAULT_LOCATION));
+  // 手動覆蓋的地點(人在國外時用);null = 用 GPS 自動定位。
+  const [locOverride, setLocOverride] = useState(readLocationOverride);
+  const initialLoc = locOverride || DEFAULT_LOCATION;
+  // 初次 paint 先用 localStorage cache;沒 cache 就用空骨架,讓 UI 立刻出來(不卡 loading)
+  const [data, setData] = useState(
+    () => getCachedTaipeiData(initialLoc) || getSkeletonTaipeiData(initialLoc)
+  );
+  // 目前最佳已知位置;資料的距離/排序都以這個 decorate,geolocation/手動設定回來後更新
+  const locRef = useRef(initialLoc);
   const [fetchError, setFetchError] = useState(null);
-  const [userLocation, setUserLocation] = useState(DEFAULT_LOCATION);
-  const [geoState, setGeoState] = useState('pending');
+  const [userLocation, setUserLocation] = useState(initialLoc);
+  const [geoState, setGeoState] = useState(locOverride ? 'manual' : 'pending');
   const [isRefreshing, setIsRefreshing] = useState(false);
   // 點收藏地點後設定;null 表示用使用者當前 GPS 位置
   const [focusedLocation, setFocusedLocation] = useState(null);
@@ -86,54 +145,106 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
-    const load = (loc) => {
-      // 有 cache 的話用新 location 立刻 reprocess (秒回)
-      const cached = getCachedTaipeiData(loc);
-      if (cached && !cancelled) setData(cached);
-      // 然後背景重新抓真資料;失敗只 warn,畫面留著 cache 的版本
-      fetchTaipeiData(loc)
-        .then(d => { if (!cancelled) setData(d); })
-        .catch(e => {
-          if (cancelled) return;
-          const msg = e.message || String(e);
-          if (cached) console.warn('background refresh failed:', msg);
-          else setFetchError(msg);
-        });
+
+    // 用「目前最佳位置」重新 decorate 已抓回的 raw cache(便宜,純算距離+排序,不重抓)
+    const redecorate = () => {
+      const d = getCachedTaipeiData(locRef.current);
+      if (d && !cancelled) setData(d);
     };
-    if (!navigator.geolocation) {
+
+    // 1) 立刻開始抓資料 —— 不等 geolocation。先用 DEFAULT_LOCATION,位置回來再 redecorate。
+    const cached = getCachedTaipeiData(locRef.current);
+    if (cached) setData(cached);
+    fetchTaipeiData(locRef.current)
+      .then(() => {
+        if (cancelled) return;
+        redecorate(); // 用最新位置(geolocation 可能已更新 locRef)重新處理剛抓回的 raw
+        setFetchError(null);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        const msg = e.message || String(e);
+        if (cached) console.warn('background refresh failed:', msg);
+        else setFetchError(msg);
+      });
+
+    // 2) 沒有手動覆蓋地點時,才平行取得 geolocation;回來後只做便宜的 redecorate,不重抓網路。
+    if (locOverride) {
+      setGeoState('manual');
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (cancelled) return;
+          const loc = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            name: '目前位置',
+          };
+          locRef.current = loc;
+          setUserLocation(loc);
+          setGeoState('granted');
+          redecorate();
+          // 反查地址 — 不 block 主流程,拿到後再覆蓋 name
+          reverseGeocode(loc).then((addr) => {
+            if (cancelled || !addr) return;
+            const withName = { ...loc, name: addr };
+            locRef.current = withName;
+            setUserLocation(withName);
+            setData((prev) => (prev ? { ...prev, userLocation: withName } : prev));
+          });
+        },
+        () => { if (!cancelled) setGeoState('denied'); },
+        { timeout: 8000, maximumAge: 60000 }
+      );
+    } else {
       setGeoState('unavailable');
-      load(DEFAULT_LOCATION);
-      return () => { cancelled = true; };
     }
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 設定面板選地點:preset = 釘到台灣某點(覆蓋 GPS);null = 改回 GPS 自動定位。
+  const chooseLocation = (preset) => {
+    setFocusedLocation(null);
+    if (preset) {
+      const loc = { lat: preset.lat, lng: preset.lng, name: preset.name };
+      try { localStorage.setItem(LOC_OVERRIDE_KEY, JSON.stringify(loc)); } catch { /* ignore */ }
+      setLocOverride(loc);
+      locRef.current = loc;
+      setUserLocation(loc);
+      setGeoState('manual');
+      // 資料同一份(全台北/新北),換中心只要便宜地重算距離+排序
+      const d = getCachedTaipeiData(loc);
+      if (d) setData(d);
+      else fetchTaipeiData(loc).then(setData).catch(() => {});
+      return;
+    }
+    // 改回自動:清掉覆蓋,重新要一次 GPS
+    try { localStorage.removeItem(LOC_OVERRIDE_KEY); } catch { /* ignore */ }
+    setLocOverride(null);
+    if (!navigator.geolocation) { setGeoState('unavailable'); return; }
+    setGeoState('pending');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        if (cancelled) return;
-        const loc = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          name: '目前位置',
-        };
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, name: '目前位置' };
+        locRef.current = loc;
         setUserLocation(loc);
         setGeoState('granted');
-        load(loc);
-        // 反查地址 — 不 block 主流程,拿到後再覆蓋 name
+        const d = getCachedTaipeiData(loc);
+        if (d) setData(d);
         reverseGeocode(loc).then((addr) => {
-          if (cancelled || !addr) return;
+          if (!addr) return;
           const withName = { ...loc, name: addr };
+          locRef.current = withName;
           setUserLocation(withName);
           setData((prev) => (prev ? { ...prev, userLocation: withName } : prev));
         });
       },
-      () => {
-        if (cancelled) return;
-        setGeoState('denied');
-        load(DEFAULT_LOCATION);
-      },
+      () => setGeoState('denied'),
       { timeout: 8000, maximumAge: 60000 }
     );
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
 
   // 刷新:不清掉既有 data,畫面照常呈現舊的,拉到新的再替換。
   // 失敗時只有在初次載入還沒成功時才進 fatal error 畫面。
@@ -166,6 +277,7 @@ function App() {
       .catch((e) => console.warn('lazy stops fetch failed:', e?.message));
   };
 
+  const { t: tr } = useLang();
   const t = theme(dark);
   const bg = dark ? '#07100D' : '#EAE6DC';
   const heroText = dark ? '#F2EFE8' : '#111816';
@@ -186,13 +298,13 @@ function App() {
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40,
       }}>
         <div style={{ maxWidth: 420, textAlign: 'center' }}>
-          <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>無法載入垃圾車資料</div>
+          <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>{tr('無法載入垃圾車資料')}</div>
           <div style={{ fontSize: 13, color: heroMuted, marginBottom: 16 }}>{fetchError}</div>
           <button onClick={reloadData} style={{
             padding: '10px 20px', borderRadius: 999,
             background: '#0F7B5A', color: '#fff', border: 'none',
             fontSize: 13, fontWeight: 700, cursor: 'pointer',
-          }}>重新載入</button>
+          }}>{tr('重新載入')}</button>
         </div>
       </div>
     );
@@ -205,7 +317,7 @@ function App() {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 14, fontWeight: 500,
       }}>
-        載入中…
+        {tr('載入中…')}
       </div>
     );
   }
@@ -227,7 +339,13 @@ function App() {
       display: 'flex', flexDirection: 'column',
     }}>
       <div style={{ flex: 1, position: 'relative', minHeight: 0, overflow: 'hidden' }}>
-        {renderScreen()}
+        <Suspense fallback={
+          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: t.textMuted, fontSize: 13 }}>
+            {tr('載入中…')}
+          </div>
+        }>
+          {renderScreen()}
+        </Suspense>
       </div>
       <TabBar tab={tab} setTab={setTab} dark={dark} inline/>
     </div>
@@ -253,10 +371,10 @@ function App() {
           </div>
           <div>
             <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.5, lineHeight: 1.1 }}>
-              台北垃圾車地圖
+              {tr('台北垃圾車地圖')}
             </div>
             <div style={{ fontSize: 11.5, color: heroMuted, marginTop: 2, fontWeight: 500 }}>
-              即時追蹤 · 資料來源 新北市政府環保局
+              {tr('即時追蹤 · 資料來源 新北市政府環保局')}
             </div>
           </div>
         </div>
@@ -269,7 +387,7 @@ function App() {
             display: 'inline-flex', alignItems: 'center', gap: 6,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: 999, background: '#2BA66F', boxShadow: '0 0 0 3px rgba(43,166,111,0.2)', animation: 'pulse 2s infinite' }}/>
-            即時同步中
+            {tr('即時同步中')}
           </div>
           <div style={{
             padding: '7px 12px', borderRadius: 999,
@@ -283,7 +401,7 @@ function App() {
             background: dark ? 'rgba(255,255,255,0.05)' : 'rgba(17,24,22,0.05)',
             color: heroMuted, fontSize: 11.5, fontWeight: 600,
             border: 'none', cursor: 'pointer',
-          }}>設定</button>
+          }}>{tr('設定')}</button>
         </div>
       </div>
 
@@ -293,8 +411,11 @@ function App() {
     </div>
   );
 
+  const view = localizeData(data, tr);
+  const localizedUserLocation = { ...userLocation, name: tr(userLocation.name) };
+
   return (
-    <TaipeiDataProvider value={{ ...data, userLocation, geoState, reloadData, isRefreshing, focusedLocation, setFocusedLocation, searchQuery, setSearchQuery, setTab, ensureStops, truckFilter, setTruckFilter }}>
+    <TaipeiDataProvider value={{ ...view, userLocation: localizedUserLocation, geoState, reloadData, isRefreshing, focusedLocation, setFocusedLocation, searchQuery, setSearchQuery, setTab, ensureStops, truckFilter, setTruckFilter }}>
       <Fragment>
         {isDesktop ? desktopLayout : phoneLayout}
         {!isDesktop && (
@@ -313,6 +434,7 @@ function App() {
         <TweaksPanel
           dark={dark} setDark={setDark}
           density={density} setDensity={setDensity}
+          locOverride={locOverride} chooseLocation={chooseLocation}
           visible={tweaksOpen} onClose={() => setTweaksOpen(false)}/>
       </Fragment>
     </TaipeiDataProvider>

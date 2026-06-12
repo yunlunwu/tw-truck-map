@@ -21,6 +21,13 @@ html, body, #root {
   to { transform: rotate(360deg); }
 }
 
+/* loading shimmer for skeleton rows (Nearby trucks while data is fetching) */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.skeleton-row { animation: skeleton-pulse 1.2s ease-in-out infinite; }
+
 button { font-family: inherit; }
 input { font-family: inherit; }
 

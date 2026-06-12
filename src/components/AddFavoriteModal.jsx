@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { theme, Icon } from './shared.jsx';
+import { useLang } from '../i18n.jsx';
 
 export function AddFavoriteModal({ dark, onClose, onAdd }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -19,13 +21,13 @@ export function AddFavoriteModal({ dark, onClose, onAdd }) {
       const entry = await onAdd({ name, address });
       if (!entry.latlng) {
         // 仍新增成功,但 geocode 失敗 — 提示但不擋流程
-        setError('地址無法解析座標,仍已新增;請確認地址或稍後編輯。');
+        setError(tr('地址無法解析座標,仍已新增;請確認地址或稍後編輯。'));
         setSubmitting(false);
         return;
       }
       onClose();
     } catch (err) {
-      setError(err?.message || '新增失敗');
+      setError(err?.message || tr('新增失敗'));
       setSubmitting(false);
     }
   };
@@ -53,7 +55,7 @@ export function AddFavoriteModal({ dark, onClose, onAdd }) {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: t.text, letterSpacing: -0.3 }}>新增收藏地點</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: t.text, letterSpacing: -0.3 }}>{tr('新增收藏地點')}</div>
           <button type="button" onClick={onClose} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: t.textMuted, fontSize: 22, lineHeight: 1, padding: 4,
@@ -61,13 +63,13 @@ export function AddFavoriteModal({ dark, onClose, onAdd }) {
         </div>
 
         <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: t.textMuted, marginBottom: 6 }}>
-          名稱(例如:家、公司)
+          {tr('名稱(例如:家、公司)')}
         </label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoFocus
-          placeholder="家"
+          placeholder={tr('家')}
           maxLength={12}
           style={{
             width: '100%', padding: '10px 12px',
@@ -79,7 +81,7 @@ export function AddFavoriteModal({ dark, onClose, onAdd }) {
         />
 
         <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: t.textMuted, marginBottom: 6 }}>
-          地址
+          {tr('地址')}
         </label>
         <input
           value={address}
@@ -94,7 +96,7 @@ export function AddFavoriteModal({ dark, onClose, onAdd }) {
           }}
         />
         <div style={{ fontSize: 11, color: t.textDim, marginBottom: 16, lineHeight: 1.5 }}>
-          會自動用 OpenStreetMap 反查座標來計算距離。地址越完整越準。
+          {tr('會自動用 OpenStreetMap 反查座標來計算距離。地址越完整越準。')}
         </div>
 
         {error && (
@@ -111,7 +113,7 @@ export function AddFavoriteModal({ dark, onClose, onAdd }) {
             flex: 1, padding: '10px', borderRadius: 10, cursor: 'pointer',
             background: 'transparent', color: t.text, border: `1px solid ${t.border}`,
             fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit',
-          }}>取消</button>
+          }}>{tr('取消')}</button>
           <button type="submit" disabled={!canSubmit} style={{
             flex: 1, padding: '10px', borderRadius: 10, cursor: canSubmit ? 'pointer' : 'not-allowed',
             background: canSubmit ? t.accent : t.chip,
@@ -120,7 +122,7 @@ export function AddFavoriteModal({ dark, onClose, onAdd }) {
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}>
             {submitting && <span style={{ fontSize: 11 }}>⟳</span>}
-            {submitting ? '查詢地址中…' : '新增'}
+            {submitting ? tr('查詢地址中…') : tr('新增')}
           </button>
         </div>
       </form>

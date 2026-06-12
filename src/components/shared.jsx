@@ -2,6 +2,7 @@ import { Children, cloneElement, useEffect, useId, useRef, useState } from 'reac
 import { createPortal } from 'react-dom';
 import { useTaipeiData } from '../data/DataContext.jsx';
 import { parseNtpcTime, taipeiParts } from '../data/taipei.js';
+import { useLang } from '../i18n.jsx';
 
 // 10 分鐘以內顯示「N 分鐘」;超過 10 分鐘改顯示 24 小時制預計抵達時間。
 // 所有時刻都換算成 Asia/Taipei 在地時間 (資料來源就是台北/新北的時刻,使用者人在哪裡都應顯示 Taipei 時間)。
@@ -10,20 +11,21 @@ import { parseNtpcTime, taipeiParts } from '../data/taipei.js';
 //   呼叫端傳 opts.reportedAt (車的 GPS 上報時間字串) → 顯示「HH:MM 最後上報」
 // 回傳 { value, unit } 讓呼叫端套到既有的「大數字 + 小單位」版面
 export function formatEta(etaMin, opts = {}) {
-  if (opts.atStop) return { value: '靠站', unit: '目前位置', mode: 'now' };
+  const tr = opts.t || ((s) => s);
+  if (opts.atStop) return { value: tr('靠站'), unit: tr('目前位置'), mode: 'now' };
   if (opts.reportedAt) {
     const dt = parseNtpcTime(opts.reportedAt);
     if (dt) {
       const p = taipeiParts(dt);
       const hh = String(p.hour).padStart(2, '0');
       const mm = String(p.minute).padStart(2, '0');
-      return { value: `${hh}:${mm}`, unit: '最後上報', mode: 'reported' };
+      return { value: `${hh}:${mm}`, unit: tr('最後上報'), mode: 'reported' };
     }
-    return { value: '—', unit: '最後上報', mode: 'empty' };
+    return { value: '—', unit: tr('最後上報'), mode: 'empty' };
   }
-  if (etaMin == null || Number.isNaN(etaMin)) return { value: '—', unit: '分鐘', mode: 'empty' };
-  if (etaMin === 0) return { value: '現在', unit: '即將抵達', mode: 'now' };
-  if (etaMin <= 10) return { value: String(etaMin), unit: '分鐘', mode: 'minutes' };
+  if (etaMin == null || Number.isNaN(etaMin)) return { value: '—', unit: tr('分鐘'), mode: 'empty' };
+  if (etaMin === 0) return { value: tr('現在'), unit: tr('即將抵達'), mode: 'now' };
+  if (etaMin <= 10) return { value: String(etaMin), unit: tr('分鐘'), mode: 'minutes' };
   const now = new Date();
   const arrival = new Date(now.getTime() + etaMin * 60000);
   // 把 now / arrival / tomorrow 都換到 Taipei 時區的日曆切片再比
@@ -38,14 +40,14 @@ export function formatEta(etaMin, opts = {}) {
   let value = `${hh}:${mm}`;
   if (!sameDay) {
     if (isTomorrow) {
-      value = `明 ${hh}:${mm}`;
+      value = `${tr('明')} ${hh}:${mm}`;
     } else {
       const mo = String(tpeArr.month).padStart(2, '0');
       const dy = String(tpeArr.day).padStart(2, '0');
       value = `${mo}/${dy} ${hh}:${mm}`;
     }
   }
-  return { value, unit: '預計抵達', mode: 'clock' };
+  return { value, unit: tr('預計抵達'), mode: 'clock' };
 }
 
 
@@ -180,6 +182,7 @@ export const Icon = {
 // 「附近垃圾車」面板上的篩選下拉。anchor 可以是 'right' (桌面,popover 貼右邊) 或 'left'。
 // placement 預設 'below'(在按鈕下方),mobile 的 BottomSheet 用 'above' 從按鈕往上開。
 export function FilterPopover({ dark, open, onClose, anchor = 'right', placement = 'below' }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   const filter = d.truckFilter;
@@ -196,9 +199,9 @@ export function FilterPopover({ dark, open, onClose, anchor = 'right', placement
   if (!open) return null;
 
   const sources = [
-    { id: 'all',       label: '全部' },
-    { id: 'realtime',  label: '即時 (新北)' },
-    { id: 'scheduled', label: '排程 (台北)' },
+    { id: 'all',       label: tr('全部') },
+    { id: 'realtime',  label: tr('即時 (新北)') },
+    { id: 'scheduled', label: tr('排程 (台北)') },
   ];
   const typeIds = ['general', 'recycle', 'food'];
   const toggleType = (ty) => {
@@ -221,7 +224,7 @@ export function FilterPopover({ dark, open, onClose, anchor = 'right', placement
       boxShadow: dark ? '0 10px 30px rgba(0,0,0,0.5)' : '0 10px 30px rgba(17,24,22,0.14)',
     }}>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: t.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>
-        資料來源
+        {tr('資料來源')}
       </div>
       <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
         {sources.map((s) => {
@@ -238,7 +241,7 @@ export function FilterPopover({ dark, open, onClose, anchor = 'right', placement
         })}
       </div>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: t.textMuted, textTransform: 'uppercase', marginBottom: 6 }}>
-        廢棄物類型
+        {tr('廢棄物類型')}
       </div>
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 12 }}>
         {typeIds.map((ty) => {
@@ -262,12 +265,12 @@ export function FilterPopover({ dark, open, onClose, anchor = 'right', placement
         <button onClick={reset} style={{
           background: 'none', border: 'none', cursor: 'pointer',
           color: t.textMuted, fontSize: 11.5, fontWeight: 600, padding: 2, fontFamily: 'inherit',
-        }}>重設</button>
+        }}>{tr('重設')}</button>
         <button onClick={onClose} style={{
           padding: '5px 14px', borderRadius: 999, border: 'none',
           background: t.accent, color: '#fff', fontSize: 11.5, fontWeight: 700,
           cursor: 'pointer', fontFamily: 'inherit',
-        }}>完成</button>
+        }}>{tr('完成')}</button>
       </div>
     </div>
   );
@@ -372,6 +375,35 @@ export function Tooltip({ children, content, side = 'bottom', delay = 150, dark 
   );
 }
 
+// 「附近垃圾車」清單在初次抓資料時的 loading 骨架(幾排 shimmer 佔位卡)。
+export function TruckListSkeleton({ dark, rows = 4, compact = false }) {
+  const t = theme(dark);
+  const bar = (w, h) => (
+    <div style={{ width: w, height: h, borderRadius: 6, background: t.chip }} />
+  );
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="skeleton-row" style={{
+          background: t.surface, border: `0.5px solid ${t.border}`,
+          borderRadius: 14, padding: compact ? '11px 14px' : '14px',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{ width: 46, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+            {bar(28, 18)}{bar(20, 8)}
+          </div>
+          <div style={{ width: 1, alignSelf: 'stretch', background: t.divider }}/>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {bar('55%', 12)}
+            {bar('80%', 9)}
+            <div style={{ display: 'flex', gap: 5 }}>{bar(46, 16)}{bar(46, 16)}</div>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 // 篩選器目前是否與預設不同 (用來決定按鈕顯示 active 樣式)
 export function isTruckFilterActive(filter) {
   if (!filter) return false;
@@ -381,13 +413,14 @@ export function isTruckFilterActive(filter) {
 }
 
 export function TabBar({ tab, setTab, dark, inline = false }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const tabs = [
-    { id: 'map',      label: '地圖', icon: Icon.pin },
-    { id: 'schedule', label: '時刻', icon: Icon.list },
-    { id: 'search',   label: '搜尋', icon: Icon.search },
-    { id: 'fav',      label: '收藏', icon: Icon.heart },
-    { id: 'guide',    label: '分類', icon: Icon.book },
+    { id: 'map',      label: tr('地圖'), icon: Icon.pin },
+    { id: 'schedule', label: tr('時刻'), icon: Icon.list },
+    { id: 'search',   label: tr('搜尋'), icon: Icon.search },
+    { id: 'fav',      label: tr('收藏'), icon: Icon.heart },
+    { id: 'guide',    label: tr('分類'), icon: Icon.book },
   ];
   return (
     <div style={{

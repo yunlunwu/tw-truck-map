@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTaipeiData } from '../data/DataContext.jsx';
 import { applyTruckFilter, isTruckStale, nearestTruckForLocation, trucksNearCenter } from '../data/taipei.js';
 import { useFavorites } from '../data/useFavorites.js';
-import { theme, WasteChip, Icon, formatEta, FilterPopover, isTruckFilterActive, Tooltip } from './shared.jsx';
+import { theme, WasteChip, Icon, formatEta, FilterPopover, isTruckFilterActive, Tooltip, TruckListSkeleton } from './shared.jsx';
 import { MapGL } from './map-gl.jsx';
 import { AddFavoriteModal } from './AddFavoriteModal.jsx';
+import { useLang } from '../i18n.jsx';
 
 // 桌面版的地址搜尋:真 input + 下拉建議 (從 d.stops 取前 6 筆地名比對)
 function DesktopAddressSearch({ dark }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   const [open, setOpen] = useState(false);
@@ -66,7 +68,7 @@ function DesktopAddressSearch({ dark }) {
           value={d.searchQuery || ''}
           onChange={(e) => { d.setSearchQuery(e.target.value); if (!open) setOpen(true); }}
           onFocus={onFocus}
-          placeholder={`輸入地址 / 路名 / 行政區 (目前位置:${d.userLocation.name || '—'})`}
+          placeholder={tr('輸入地址 / 路名 / 行政區 (目前位置:{loc})', { loc: d.userLocation.name || '—' })}
           autoComplete="off"
           style={{
             flex: 1, background: 'none', border: 'none', outline: 'none',
@@ -86,7 +88,7 @@ function DesktopAddressSearch({ dark }) {
             background: t.accentSoft, color: t.accentText, border: 'none',
             fontSize: 11, fontWeight: 700, letterSpacing: 0.4,
             cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-          }}>回到目前位置</button>
+          }}>{tr('回到目前位置')}</button>
         )}
       </label>
 
@@ -100,12 +102,12 @@ function DesktopAddressSearch({ dark }) {
         }}>
           {!d.stopsFull && (
             <div style={{ padding: '8px 12px', fontSize: 11.5, color: t.textMuted }}>
-              載入完整地址資料中…
+              {tr('載入完整地址資料中…')}
             </div>
           )}
           {matches.length === 0 ? (
             <div style={{ padding: '12px', fontSize: 12.5, color: t.textMuted, textAlign: 'center' }}>
-              {d.stopsFull ? `找不到符合「${q}」的地址` : '請稍等地址資料載入'}
+              {d.stopsFull ? tr('找不到符合「{q}」的地址', { q }) : tr('請稍等地址資料載入')}
             </div>
           ) : matches.map((s) => (
             <button key={s.id} onClick={() => pick(s)} style={{
@@ -137,6 +139,7 @@ function DesktopAddressSearch({ dark }) {
 }
 
 export function DesktopMap({ dark }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   const effectiveCenter = d.focusedLocation || d.userLocation;
@@ -162,7 +165,7 @@ export function DesktopMap({ dark }) {
             boxShadow: '0 0 0 3px rgba(43,166,111,0.2)',
             animation: 'pulse 2s infinite',
           }}/>
-          即時 · {d.lastUpdated.split(' ')[1]} 更新
+          {tr('即時 · {time} 更新', { time: d.lastUpdated.split(' ')[1] || d.lastUpdated })}
         </div>
       </div>
     <div style={{
@@ -193,7 +196,7 @@ export function DesktopMap({ dark }) {
           {Icon.pin(dark ? '#4FBE95' : '#0F7B5A')}
           <Tooltip content={d.focusedLocation.name} dark={dark}>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }}>
-              顯示中:{d.focusedLocation.name}
+              {tr('顯示中:{name}', { name: d.focusedLocation.name })}
             </span>
           </Tooltip>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
@@ -209,10 +212,10 @@ export function DesktopMap({ dark }) {
               }}
               onMouseEnter={(e) => (e.currentTarget.style.background = '#0C6449')}
               onMouseLeave={(e) => (e.currentTarget.style.background = t.accent)}
-            >返回目前位置</button>
+            >{tr('返回目前位置')}</button>
             <button
               onClick={() => d.setFocusedLocation(null)}
-              aria-label="關閉"
+              aria-label={tr('關閉')}
               style={{
                 width: 22, height: 22, borderRadius: 999,
                 background: dark ? 'rgba(255,255,255,0.10)' : 'rgba(15,123,90,0.12)',
@@ -229,8 +232,8 @@ export function DesktopMap({ dark }) {
       <button
         onClick={d.reloadData}
         disabled={d.isRefreshing}
-        aria-label="刷新資料"
-        title={d.isRefreshing ? '刷新中…' : '刷新資料'}
+        aria-label={tr('刷新資料')}
+        title={d.isRefreshing ? tr('刷新中…') : tr('刷新資料')}
         style={{
           position: 'absolute', top: 16, right: 16, zIndex: 500,
           width: 38, height: 38, borderRadius: 10,
@@ -255,6 +258,7 @@ export function DesktopMap({ dark }) {
 }
 
 export function DesktopDashboard({ dark, density }) {
+  const { t: tr } = useLang();
   const t = theme(dark);
   const d = useTaipeiData();
   const { favorites, addFavorite, removeFavorite } = useFavorites();
@@ -278,13 +282,13 @@ export function DesktopDashboard({ dark, density }) {
           borderRadius: 18, padding: 18,
         }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 }}>
-            地址搜尋
+            {tr('地址搜尋')}
           </div>
           <DesktopAddressSearch dark={dark}/>
           <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap', fontSize: 11.5, color: t.textMuted }}>
-            <span style={{ letterSpacing: 1, fontWeight: 700 }}>資料來源</span>
-            <span style={{ padding: '3px 8px', borderRadius: 999, background: t.chip }}>台北市・data.taipei</span>
-            <span style={{ padding: '3px 8px', borderRadius: 999, background: t.chip }}>新北市・data.ntpc</span>
+            <span style={{ letterSpacing: 1, fontWeight: 700 }}>{tr('資料來源')}</span>
+            <span style={{ padding: '3px 8px', borderRadius: 999, background: t.chip }}>{tr('台北市・data.taipei')}</span>
+            <span style={{ padding: '3px 8px', borderRadius: 999, background: t.chip }}>{tr('新北市・data.ntpc')}</span>
           </div>
         </div>
 
@@ -299,12 +303,12 @@ export function DesktopDashboard({ dark, density }) {
           display: 'flex', flexDirection: 'column', justifyContent: 'center',
         }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1.5, opacity: 0.85 }}>
-            下一班 · 即將抵達您的位置
+            {tr('下一班 · 即將抵達您的位置')}
           </div>
           {next ? (
             <>
               {(() => {
-                const f = formatEta(next.eta, { atStop: next.atStop, reportedAt: next.reportedAt });
+                const f = formatEta(next.eta, { atStop: next.atStop, reportedAt: next.reportedAt, t: tr });
                 return (
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
                     <span style={{
@@ -330,7 +334,7 @@ export function DesktopDashboard({ dark, density }) {
             </>
           ) : (
             <div style={{ fontSize: 15, fontWeight: 600, marginTop: 10, lineHeight: 1.5 }}>
-              目前沒有即將抵達的垃圾車
+              {tr('目前沒有即將抵達的垃圾車')}
             </div>
           )}
         </div>
@@ -347,10 +351,10 @@ export function DesktopDashboard({ dark, density }) {
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
             <div>
               <div style={{ fontSize: 11.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1.2, textTransform: 'uppercase' }}>
-                附近垃圾車
+                {tr('附近垃圾車')}
               </div>
               <div style={{ fontSize: 18, fontWeight: 700, color: t.text, letterSpacing: -0.3, marginTop: 2 }}>
-                {filteredTrucks.length}{filterActive ? ` / ${d.trucks.length}` : ''} 班 · 依距離排序
+                {filteredTrucks.length}{filterActive ? ` / ${d.trucks.length}` : ''}{tr(' 班 · 依距離排序')}
               </div>
             </div>
             <div style={{ position: 'relative' }}>
@@ -364,7 +368,7 @@ export function DesktopDashboard({ dark, density }) {
                   fontSize: 11.5, fontWeight: 600, fontFamily: 'inherit',
                   display: 'flex', alignItems: 'center', gap: 4,
                 }}>
-                {Icon.filter(filterActive ? t.accentText : t.textMuted)} 篩選{filterActive ? ' ·' : ''}
+                {Icon.filter(filterActive ? t.accentText : t.textMuted)} {tr('篩選')}{filterActive ? ' ·' : ''}
               </button>
               <FilterPopover dark={dark} open={filterOpen} onClose={() => setFilterOpen(false)} anchor="right" placement="below"/>
             </div>
@@ -374,16 +378,19 @@ export function DesktopDashboard({ dark, density }) {
             display: 'flex', flexDirection: 'column',
             gap: density === 'compact' ? 6 : 8, marginRight: -8, paddingRight: 8,
           }}>
-            {filteredTrucks.length === 0 && (
+            {d.loading && filteredTrucks.length === 0 && (
+              <TruckListSkeleton dark={dark} compact={density === 'compact'} />
+            )}
+            {!d.loading && filteredTrucks.length === 0 && (
               <div style={{
                 padding: '24px 12px', textAlign: 'center',
                 color: t.textMuted, fontSize: 12.5,
                 border: `1.5px dashed ${t.border}`, borderRadius: 12,
               }}>
-                沒有符合篩選條件的車輛。<button onClick={() => d.setTruckFilter({ source: 'all', types: ['general', 'recycle', 'food'] })} style={{
+                {tr('沒有符合篩選條件的車輛。')}<button onClick={() => d.setTruckFilter({ source: 'all', types: ['general', 'recycle', 'food'] })} style={{
                   background: 'none', border: 'none', color: t.accentText,
                   cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit', fontSize: 12.5,
-                }}>重設篩選</button>
+                }}>{tr('重設篩選')}</button>
               </div>
             )}
             {filteredTrucks.map(truck => {
@@ -406,7 +413,7 @@ export function DesktopDashboard({ dark, density }) {
                     zoom: 17,
                   })}
                   role="button"
-                  title={stale ? '此車已收工或資料已舊 · 點擊仍可聚焦到位置' : '點擊將地圖聚焦到此車輛位置'}
+                  title={stale ? tr('此車已收工或資料已舊 · 點擊仍可聚焦到位置') : tr('點擊將地圖聚焦到此車輛位置')}
                   style={{
                     background: focused ? (dark ? 'rgba(15,123,90,0.15)' : '#F3FAF6') : t.surface2,
                     border: `1px solid ${focused ? t.accent : t.border}`,
@@ -422,6 +429,7 @@ export function DesktopDashboard({ dark, density }) {
                     const f = formatEta(truck.eta, {
                       atStop: truck.atStop,
                       reportedAt: truck.realtime ? truck.time : null,
+                      t: tr,
                     });
                     return (
                       <div style={{ width: 52, textAlign: 'center', flexShrink: 0 }}>
@@ -441,13 +449,13 @@ export function DesktopDashboard({ dark, density }) {
                         fontSize: 9.5, fontWeight: 700, padding: '1.5px 6px', borderRadius: 4,
                         background: truck.realtime ? '#E8F3EE' : t.chip,
                         color: truck.realtime ? '#0F7B5A' : t.textMuted, flexShrink: 0,
-                      }}>{truck.realtime ? '即時' : '排程'}</span>
+                      }}>{truck.realtime ? tr('即時') : tr('排程')}</span>
                     </div>
                     <div style={{
                       fontSize: 11.5, color: t.textMuted, marginTop: 2, marginBottom: 5,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
-                      目前位置 · {truck.currentStop}
+                      {tr('目前位置')} · {truck.currentStop}
                     </div>
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                       {truck.accepts.map(a => <WasteChip key={a} type={a} dark={dark}/>)}
@@ -467,7 +475,7 @@ export function DesktopDashboard({ dark, density }) {
           borderRadius: 18, padding: 18,
         }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 }}>
-            本週收集日 · 我的位置
+            {tr('本週收集日 · 我的位置')}
           </div>
           <div style={{
             display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6,
@@ -491,7 +499,7 @@ export function DesktopDashboard({ dark, density }) {
                     {hasAny ? w.types.map(ty => {
                       const color = { general: dark ? '#9CA3AF' : '#6B7280', recycle: '#0F7B5A', food: '#B85C2E' }[ty];
                       return <span key={ty} style={{ width: 8, height: 8, borderRadius: 999, background: color }}/>;
-                    }) : <span style={{ fontSize: 10, color: t.textDim, marginTop: 6 }}>停收</span>}
+                    }) : <span style={{ fontSize: 10, color: t.textDim, marginTop: 6 }}>{tr('停收')}</span>}
                   </div>
                 </div>
               );
@@ -502,7 +510,7 @@ export function DesktopDashboard({ dark, density }) {
             borderRadius: 10, fontSize: 11.5, color: t.textMuted, lineHeight: 1.5,
             border: `0.5px dashed ${t.border}`,
           }}>
-            資料來源:{d.dataSource} · 最後更新 {d.lastUpdated}
+            {tr('資料來源:{src} · 最後更新 {time}', { src: d.dataSource, time: d.lastUpdated })}
           </div>
         </div>
 
@@ -512,14 +520,14 @@ export function DesktopDashboard({ dark, density }) {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div style={{ fontSize: 11.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1.2, textTransform: 'uppercase' }}>
-              收藏地點
+              {tr('收藏地點')}
             </div>
             <button onClick={() => setFavModalOpen(true)} style={{
               background: t.accent, color: '#fff', border: 'none',
               borderRadius: 999, padding: '4px 10px', fontSize: 11, fontWeight: 700,
               cursor: 'pointer', fontFamily: 'inherit',
               display: 'inline-flex', alignItems: 'center', gap: 3,
-            }}>{Icon.plus('#fff')} 新增</button>
+            }}>{Icon.plus('#fff')} {tr('新增')}</button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {favorites.length === 0 && (
@@ -527,7 +535,7 @@ export function DesktopDashboard({ dark, density }) {
                 padding: '18px 12px', textAlign: 'center',
                 border: `1.5px dashed ${t.border}`, borderRadius: 12,
                 color: t.textMuted, fontSize: 12,
-              }}>還沒收藏 · 點右上角新增</div>
+              }}>{tr('還沒收藏 · 點右上角新增')}</div>
             )}
             {favorites.map((f) => {
               const emojis = { '家': '🏠', '公司': '🏢', '阿嬤家': '🌿', '學校': '🏫' };
@@ -539,7 +547,7 @@ export function DesktopDashboard({ dark, density }) {
                 <div key={f.id}
                   onClick={() => canFocus && d.setFocusedLocation({ ...f.latlng, name: f.name })}
                   role={canFocus ? 'button' : undefined}
-                  title={canFocus ? '點擊將地圖聚焦到此地點' : undefined}
+                  title={canFocus ? tr('點擊將地圖聚焦到此地點') : undefined}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: 10, background: t.surface2, border: `1px solid ${t.border}`, borderRadius: 12,
@@ -565,6 +573,7 @@ export function DesktopDashboard({ dark, density }) {
                     const ef = formatEta(nearest?.eta, {
                       atStop: nearest?.atStop,
                       reportedAt: nearest?.reportedAt,
+                      t: tr,
                     });
                     return (
                       <div style={{ textAlign: 'right' }}>
@@ -578,11 +587,11 @@ export function DesktopDashboard({ dark, density }) {
                   })()}
                   <button onClick={(e) => {
                     e.stopPropagation();
-                    if (window.confirm(`刪除「${f.name}」?`)) removeFavorite(f.id);
+                    if (window.confirm(tr('刪除「{name}」?', { name: f.name }))) removeFavorite(f.id);
                   }} style={{
                     background: 'none', border: 'none', cursor: 'pointer',
                     color: t.textDim, fontSize: 16, padding: 2, lineHeight: 1,
-                  }} title="刪除">×</button>
+                  }} title={tr('刪除')}>×</button>
                 </div>
               );
             })}
@@ -594,7 +603,7 @@ export function DesktopDashboard({ dark, density }) {
           borderRadius: 18, padding: 18,
         }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: t.textMuted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 12 }}>
-            分類指南
+            {tr('分類指南')}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {d.guide.map(g => {
