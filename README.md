@@ -4,6 +4,8 @@ A dual-city rubbish truck map combining public data from **New Taipei City** (li
 
 Desktop and mobile have independent layouts (it automatically switches to the desktop dashboard at 1200px and above).
 
+![tw-truck-map demo](assets/intro.gif)
+
 ## Data sources
 
 | City | API | Content | CORS |
