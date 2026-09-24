@@ -28,6 +28,20 @@ npm run lint
 
 Requires Node 18+. The first dev startup fetches 4000+ schedule records from `data.taipei` (~6s); this is cached in localStorage with stale-while-revalidate (1 hour hard TTL).
 
+## Testing
+
+End-to-end tests with [Playwright](https://playwright.dev/), covering the app shell/tab navigation, the desktop/mobile layout switch, the settings panel (dark mode, density, language, location), and the saved-places add/delete flow.
+
+```bash
+npx playwright install   # first run only, downloads browser binaries
+npm test                 # headless run
+npm run test:ui          # interactive UI mode
+```
+
+[`playwright.config.ts`](playwright.config.ts) starts the dev server itself (`webServer`), so `npm run dev` doesn't need to be running first. It also pins a fixed geolocation so the app's GPS-on-load flow doesn't hit a real permission prompt or the 8s timeout fallback.
+
+Tests never hit the live New Taipei / Taipei / Nominatim APIs — [`tests/mocks.ts`](tests/mocks.ts) stubs all three so runs are deterministic and don't depend on those government endpoints being up. Runs on every push/PR via [`.github/workflows/playwright.yml`](.github/workflows/playwright.yml).
+
 ## Key features
 
 - **Map** — Leaflet + CartoDB base tiles (Voyager / Dark_All dual themes), auto-fits bounds to frame the user's location together with the nearest 20 trucks.
